@@ -1,9 +1,12 @@
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Result;
 use std::fs::File;
 use std::io::BufReader;
+use tera::Context;
+use tera::Tera;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum OnDeleteOptions {
     Cascade,
@@ -12,7 +15,7 @@ enum OnDeleteOptions {
     DoNothing,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 enum ColumnType {
     CharField,
@@ -27,14 +30,14 @@ enum ColumnType {
     OneToOneField,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
 enum SchemaType {
     Table,
     Enum,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 struct Schema {
     id: String,
     rows: Vec<Row>,
@@ -43,13 +46,13 @@ struct Schema {
     schema_type: SchemaType,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 struct Row {
     id: String,
     data: FieldData,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 struct FieldData {
     name: String,
     #[serde(rename = "field_name")]
@@ -65,12 +68,12 @@ struct FieldData {
     on_delete: Option<OnDeleteOptions>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct ForeignKeyData {
     id: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 struct Data {
     id: String,
     #[serde(rename = "table_name")]
@@ -80,7 +83,7 @@ struct Data {
     options: Option<Vec<OptionData>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 struct OptionData {
     value: String,
     label: String,
@@ -97,9 +100,31 @@ fn main() -> Result<()> {
     let schemas: Vec<Schema> = serde_json::from_reader(reader).unwrap();
 
     // Print the schemas to see if they are deserialized correctly.
-    for schema in schemas {
+    for schema in schemas.clone() {
         println!("{:#?}", schema);
     }
+
+    // Use globbing
+    let tera = match Tera::new("templates/**/*.tpl") {
+        Ok(t) => t,
+        Err(e) => {
+            println!("Parsing error(s): {}", e);
+            ::std::process::exit(1);
+        }
+    };
+
+    let mut context = Context::new();
+    context.insert("modelName", "model1");
+    context.insert("schemas", &schemas);
+
+    match tera.render("models.py.tpl", &context) {
+        Ok(rendered_template) => {
+            println!("{:?}", rendered_template)
+        }
+        Err(e) => {
+            println!("{:?}", e)
+        }
+    };
 
     Ok(())
 }
