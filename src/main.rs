@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Result;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Write};
 use tera::Context;
 use tera::Tera;
 
@@ -119,7 +119,10 @@ fn main() -> Result<()> {
 
     match tera.render("models.py.tpl", &context) {
         Ok(rendered_template) => {
-            println!("{:?}", rendered_template)
+            println!("{:?}", rendered_template);
+
+            let mut output_file = File::create("output/models.py").unwrap();
+            output_file.write_all(rendered_template.as_bytes()).unwrap();
         }
         Err(e) => {
             println!("{:?}", e)
