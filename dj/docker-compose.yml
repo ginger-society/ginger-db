@@ -20,3 +20,15 @@ services:
             - ./:/app
             - ~/.gitconfig:/etc/gitconfig
             - ~/.ssh:/root/.ssh
+        depends_on:
+            - db
+    db:
+        image: postgres:14.1-alpine
+        restart: always
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+        ports:
+            - 5432:5432
+        volumes:
+            - ./pgsql:/var/lib/postgresql/data
