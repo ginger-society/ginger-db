@@ -53,6 +53,12 @@ struct Row {
 }
 
 #[derive(Deserialize, Debug, Serialize, Clone)]
+#[serde(untagged)]
+enum DefaultValue {
+    Boolean(bool),
+    String(String),
+}
+#[derive(Deserialize, Debug, Serialize, Clone)]
 struct FieldData {
     name: String,
     #[serde(rename = "field_name")]
@@ -61,6 +67,7 @@ struct FieldData {
     field_type: ColumnType,
     null: Option<bool>,
     options_target: Option<String>,
+    default: Option<DefaultValue>,
 
     // Forign key related
     target: Option<String>,
