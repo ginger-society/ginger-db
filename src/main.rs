@@ -92,6 +92,7 @@ struct Data {
     name: String,
     #[serde(default)]
     options: Option<Vec<OptionData>>,
+    docs: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Serialize, Clone, PartialEq, Eq)]
