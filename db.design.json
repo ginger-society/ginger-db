@@ -195,6 +195,17 @@
           "name": "type"
         },
         "id": "type"
+      },
+      {
+        "id": "duration",
+        "data": {
+          "name": "duration",
+          "field_name": "duration",
+          "id": "duration",
+          "type": "PositiveIntegerField",
+          "default": "45",
+          "null": true
+        }
       }
     ],
     "data": {

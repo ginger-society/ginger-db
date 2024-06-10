@@ -59,7 +59,7 @@ WSGI_APPLICATION = "server.wsgi.application"
 DATABASES = {  # pragma: no cover
     "default": {
         "ENGINE": "ginger.db.backends.postgresql_psycopg2",
-        "NAME": 'test3',
+        "NAME": 'test',
         "USER": 'postgres',
         "PASSWORD": 'postgres',
         "HOST": 'db',
