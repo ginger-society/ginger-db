@@ -20,7 +20,9 @@
           "type": "CharField",
           "id": "name",
           "name": "name",
-          "field_name": "name"
+          "field_name": "name",
+          "null": false,
+          "max_length": "150"
         }
       },
       {
@@ -29,7 +31,8 @@
           "type": "CharField",
           "name": "roll number",
           "id": "roll_number",
-          "field_name": "roll_number"
+          "field_name": "roll_number",
+          "max_length": "40"
         }
       },
       {
@@ -48,7 +51,8 @@
           "null": true,
           "type": "CharField",
           "field_name": "father_name",
-          "name": "father name"
+          "name": "father name",
+          "max_length": "100"
         },
         "id": "father_name"
       },
@@ -57,7 +61,8 @@
           "id": "address",
           "type": "TextField",
           "name": "address",
-          "field_name": "address"
+          "field_name": "address",
+          "max_length": "500"
         },
         "id": "address"
       }
@@ -127,7 +132,9 @@
           "type": "ForeignKey",
           "field_name": "course",
           "id": "course",
-          "name": "course"
+          "name": "course",
+          "on_delete": "SET_NULL",
+          "null": true
         }
       }
     ],
@@ -159,7 +166,8 @@
           "id": "name",
           "field_name": "name",
           "type": "CharField",
-          "name": "name"
+          "name": "name",
+          "max_length": "100"
         }
       },
       {
@@ -168,7 +176,9 @@
           "type": "CharField",
           "options_target": "course_type",
           "field_name": "type",
-          "name": "type"
+          "name": "type",
+          "default": "compulsary",
+          "max_length": "50"
         },
         "id": "type"
       }

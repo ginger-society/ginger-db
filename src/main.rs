@@ -68,6 +68,7 @@ struct FieldData {
     null: Option<bool>,
     options_target: Option<String>,
     default: Option<DefaultValue>,
+    max_length: Option<String>,
 
     // Forign key related
     target: Option<String>,
