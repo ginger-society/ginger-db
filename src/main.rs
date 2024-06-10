@@ -147,5 +147,17 @@ fn main() -> Result<()> {
         }
     };
 
+    match tera.render("admin.py.tpl", &context) {
+        Ok(rendered_template) => {
+            println!("{:?}", rendered_template);
+
+            let mut output_file = File::create("dj/src/admin.py").unwrap();
+            output_file.write_all(rendered_template.as_bytes()).unwrap();
+        }
+        Err(e) => {
+            println!("{:?}", e)
+        }
+    };
+
     Ok(())
 }

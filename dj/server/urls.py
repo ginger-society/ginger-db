@@ -21,6 +21,5 @@ from ginger.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("endpoints/", include("src.urls")),
     path("", include("ginger.prometheus.urls")),
 ]
