@@ -139,7 +139,7 @@ fn main() -> Result<()> {
         Ok(rendered_template) => {
             println!("{:?}", rendered_template);
 
-            let mut output_file = File::create("output/models.py").unwrap();
+            let mut output_file = File::create("dj/src/models.py").unwrap();
             output_file.write_all(rendered_template.as_bytes()).unwrap();
         }
         Err(e) => {
