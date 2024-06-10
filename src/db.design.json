@@ -2,8 +2,8 @@
   {
     "id": "student",
     "position": {
-      "left": 520,
-      "top": 164
+      "top": 164,
+      "left": 520
     },
     "rows": [
       {
@@ -15,54 +15,55 @@
         }
       },
       {
-        "id": "name",
         "data": {
           "name": "name",
-          "field_name": "name",
+          "id": "name",
           "type": "CharField",
-          "id": "name"
-        }
+          "field_name": "name"
+        },
+        "id": "name"
       },
       {
         "id": "roll_number",
         "data": {
           "name": "roll number",
           "type": "CharField",
-          "id": "roll_number",
-          "field_name": "roll_number"
+          "field_name": "roll_number",
+          "id": "roll_number"
         }
       },
       {
-        "id": "on_scholarship",
         "data": {
+          "type": "BooleanField",
           "field_name": "on_scholarship",
           "name": "on scholarship",
-          "id": "on_scholarship",
-          "type": "BooleanField"
-        }
+          "id": "on_scholarship"
+        },
+        "id": "on_scholarship"
       },
       {
-        "id": "father_name",
         "data": {
+          "id": "father_name",
+          "type": "CharField",
           "name": "father name",
           "field_name": "father_name",
-          "type": "CharField",
-          "id": "father_name"
-        }
+          "null": true
+        },
+        "id": "father_name"
       },
       {
+        "id": "address",
         "data": {
           "type": "TextField",
-          "name": "address",
+          "field_name": "address",
           "id": "address",
-          "field_name": "address"
-        },
-        "id": "address"
+          "name": "address"
+        }
       }
     ],
     "data": {
-      "id": "student",
       "table_name": "student",
+      "id": "student",
       "name": "Student"
     },
     "type": "table"
@@ -75,34 +76,34 @@
     },
     "rows": [],
     "data": {
+      "name": "course type",
+      "id": "course_type",
       "options": [
         {
           "value": "compulsary",
           "label": "Compulsary"
         },
         {
-          "value": "elective",
-          "label": "Elective"
+          "label": "Elective",
+          "value": "elective"
         }
       ],
-      "table_name": "course_type",
-      "name": "course type",
-      "id": "course_type"
+      "table_name": "course_type"
     },
     "type": "enum"
   },
   {
     "id": "enrollment",
     "position": {
-      "top": 559,
-      "left": 1075
+      "left": 1075,
+      "top": 559
     },
     "rows": [
       {
         "data": {
-          "type": "BigAutoField",
+          "field_name": "pk",
           "name": "pk",
-          "field_name": "pk"
+          "type": "BigAutoField"
         },
         "id": "pk"
       },
@@ -110,59 +111,71 @@
         "id": "student",
         "data": {
           "id": "student",
+          "field_name": "student",
           "target": "student",
           "type": "ForeignKey",
-          "field_name": "student",
-          "name": "student"
+          "name": "student",
+          "related_name": "courses",
+          "on_delete": "DO_NOTHING"
         }
       },
       {
-        "id": "course",
         "data": {
-          "name": "course",
           "field_name": "course",
-          "id": "course",
           "target": "course",
-          "type": "ForeignKey"
-        }
+          "id": "course",
+          "type": "ForeignKey",
+          "name": "course"
+        },
+        "id": "course"
       }
     ],
     "data": {
+      "table_name": "enrollment",
       "name": "Enrollment",
-      "id": "enrollment",
-      "table_name": "enrollment"
+      "id": "enrollment"
     },
     "type": "table"
   },
   {
     "id": "course",
     "position": {
-      "top": 554,
-      "left": 363
+      "left": 363,
+      "top": 554
     },
     "rows": [
       {
+        "id": "pk",
         "data": {
           "field_name": "pk",
           "type": "BigAutoField",
           "name": "pk"
-        },
-        "id": "pk"
+        }
+      },
+      {
+        "id": "name",
+        "data": {
+          "id": "name",
+          "field_name": "name",
+          "type": "CharField",
+          "name": "name"
+        }
       },
       {
         "data": {
-          "field_name": "name",
-          "name": "name",
-          "type": "CharField",
-          "id": "name"
+          "field_name": "type",
+          "name": "type",
+          "options_target": "course_type",
+          "id": "type",
+          "type": "CharField"
         },
-        "id": "name"
+        "id": "type"
       }
     ],
     "data": {
-      "name": "Course",
+      "table_name": "course",
       "id": "course",
-      "table_name": "course"
+      "name": "Course"
     },
     "type": "table"
   }
