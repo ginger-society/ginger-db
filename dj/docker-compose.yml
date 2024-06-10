@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+    compose:
+        container_name: ginger-db-compose-service
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - 8000:8000
+        environment:
+            - env=prod
+            - DB_NAME=django_2
+            - DB_USERNAME=postgres
+            - DB_PASSWORD=postgres
+            - DB_HOST=db
+            - ALLOWED_HOSTS=localhost
+            - CSRF_TRUSTED_ORIGINS=http://localhost
+        volumes:
+            - ./:/app
+            - ~/.gitconfig:/etc/gitconfig
+            - ~/.ssh:/root/.ssh

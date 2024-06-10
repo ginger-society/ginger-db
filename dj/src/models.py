@@ -41,6 +41,9 @@ class student(models.Model):
      
         updated_at = models.DateField(        auto_now=True,   )
     
+     
+        has_cab_service = models.BooleanField(False,      null=True,     )
+    
         class Meta:
             db_table = "student"
 
