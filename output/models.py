@@ -1,6 +1,12 @@
 from ginger.db import models
 
 
+course_type = (
+    ("compulsary", "Compulsary"),
+    ("elective", "Elective"),
+)
+
+
 class student(models.Model):
 
     name = models.CharField(
@@ -26,12 +32,6 @@ class student(models.Model):
 
     class Meta:
         db_table = "student"
-
-
-course_type = (
-    ("compulsary", "Compulsary"),
-    ("elective", "Elective"),
-)
 
 
 class enrollment(models.Model):
