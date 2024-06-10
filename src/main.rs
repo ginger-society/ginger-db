@@ -21,6 +21,7 @@ enum ColumnType {
     CharField,
     BooleanField,
     DateField,
+    DateTimeField,
     ForeignKey,
     BigAutoField,
     PositiveIntegerField,
@@ -74,6 +75,8 @@ struct FieldData {
     target: Option<String>,
     related_name: Option<String>,
     on_delete: Option<OnDeleteOptions>,
+    auto_now_add: Option<bool>,
+    auto_now: Option<bool>,
 }
 
 #[derive(Deserialize, Debug, Serialize)]

@@ -30,6 +30,18 @@ class student(models.Model):
         max_length=500,
     )
 
+    data_of_birth = models.DateField(
+        null=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateField(
+        auto_now=True,
+    )
+
     class Meta:
         db_table = "student"
 

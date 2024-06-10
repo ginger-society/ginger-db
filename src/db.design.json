@@ -2,69 +2,100 @@
   {
     "id": "student",
     "position": {
-      "top": 164,
-      "left": 520
+      "left": 520,
+      "top": 164
     },
     "rows": [
       {
+        "id": "pk",
         "data": {
-          "field_name": "pk",
+          "type": "BigAutoField",
           "name": "pk",
-          "type": "BigAutoField"
-        },
-        "id": "pk"
+          "field_name": "pk"
+        }
       },
       {
-        "id": "name",
         "data": {
           "type": "CharField",
           "id": "name",
-          "name": "name",
           "field_name": "name",
+          "name": "name",
           "null": false,
           "max_length": "150"
-        }
+        },
+        "id": "name"
       },
       {
-        "id": "roll_number",
         "data": {
-          "type": "CharField",
-          "name": "roll number",
+          "max_length": "40",
           "id": "roll_number",
-          "field_name": "roll_number",
-          "max_length": "40"
-        }
+          "name": "roll number",
+          "type": "CharField",
+          "field_name": "roll_number"
+        },
+        "id": "roll_number"
       },
       {
-        "id": "on_scholarship",
         "data": {
+          "id": "on_scholarship",
           "type": "BooleanField",
           "field_name": "on_scholarship",
           "name": "on scholarship",
-          "id": "on_scholarship",
           "default": true
-        }
+        },
+        "id": "on_scholarship"
       },
       {
         "data": {
           "id": "father_name",
-          "null": true,
-          "type": "CharField",
           "field_name": "father_name",
-          "name": "father name",
-          "max_length": "100"
+          "max_length": "100",
+          "type": "CharField",
+          "null": true,
+          "name": "father name"
         },
         "id": "father_name"
       },
       {
         "data": {
-          "id": "address",
-          "type": "TextField",
           "name": "address",
-          "field_name": "address",
-          "max_length": "500"
+          "max_length": "500",
+          "type": "TextField",
+          "id": "address",
+          "field_name": "address"
         },
         "id": "address"
+      },
+      {
+        "id": "data_of_birth",
+        "data": {
+          "type": "DateField",
+          "id": "data_of_birth",
+          "field_name": "data_of_birth",
+          "name": "data of birth",
+          "null": true,
+          "auto_now_add": false
+        }
+      },
+      {
+        "data": {
+          "id": "created_at",
+          "name": "created at",
+          "auto_now_add": true,
+          "field_name": "created_at",
+          "type": "DateTimeField"
+        },
+        "id": "created_at"
+      },
+      {
+        "data": {
+          "field_name": "updated_at",
+          "id": "updated_at",
+          "auto_now": true,
+          "type": "DateField",
+          "name": "updated at"
+        },
+        "id": "updated_at"
       }
     ],
     "data": {
@@ -82,111 +113,111 @@
     },
     "rows": [],
     "data": {
-      "name": "course type",
-      "id": "course_type",
-      "table_name": "course_type",
       "options": [
         {
-          "value": "compulsary",
-          "label": "Compulsary"
+          "label": "Compulsary",
+          "value": "compulsary"
         },
         {
-          "label": "Elective",
-          "value": "elective"
+          "value": "elective",
+          "label": "Elective"
         }
-      ]
+      ],
+      "name": "course type",
+      "table_name": "course_type",
+      "id": "course_type"
     },
     "type": "enum"
   },
   {
     "id": "enrollment",
     "position": {
-      "top": 559,
-      "left": 1075
+      "left": 1075,
+      "top": 559
     },
     "rows": [
       {
+        "id": "pk",
         "data": {
           "field_name": "pk",
           "name": "pk",
           "type": "BigAutoField"
-        },
-        "id": "pk"
+        }
       },
       {
-        "id": "student",
         "data": {
-          "field_name": "student",
           "target": "student",
-          "type": "ForeignKey",
-          "on_delete": "DO_NOTHING",
+          "related_name": "courses",
+          "field_name": "student",
           "id": "student",
+          "type": "ForeignKey",
           "name": "student",
-          "related_name": "courses"
-        }
+          "on_delete": "DO_NOTHING"
+        },
+        "id": "student"
       },
       {
-        "id": "course",
         "data": {
-          "target": "course",
-          "type": "ForeignKey",
-          "field_name": "course",
-          "id": "course",
-          "name": "course",
           "on_delete": "SET_NULL",
+          "name": "course",
+          "id": "course",
+          "type": "ForeignKey",
+          "target": "course",
+          "field_name": "course",
           "null": true
-        }
+        },
+        "id": "course"
       }
     ],
     "data": {
       "id": "enrollment",
-      "name": "Enrollment",
-      "table_name": "enrollment"
+      "table_name": "enrollment",
+      "name": "Enrollment"
     },
     "type": "table"
   },
   {
     "id": "course",
     "position": {
-      "top": 554,
-      "left": 363
+      "top": 678,
+      "left": 365
     },
     "rows": [
       {
         "id": "pk",
         "data": {
-          "type": "BigAutoField",
           "field_name": "pk",
-          "name": "pk"
+          "name": "pk",
+          "type": "BigAutoField"
         }
       },
       {
-        "id": "name",
         "data": {
-          "id": "name",
+          "type": "CharField",
+          "max_length": "100",
           "field_name": "name",
-          "type": "CharField",
           "name": "name",
-          "max_length": "100"
-        }
+          "id": "name"
+        },
+        "id": "name"
       },
       {
         "data": {
-          "id": "type",
-          "type": "CharField",
           "options_target": "course_type",
-          "field_name": "type",
-          "name": "type",
+          "id": "type",
           "default": "compulsary",
-          "max_length": "50"
+          "max_length": "50",
+          "type": "CharField",
+          "field_name": "type",
+          "name": "type"
         },
         "id": "type"
       }
     ],
     "data": {
-      "table_name": "course",
       "name": "Course",
-      "id": "course"
+      "id": "course",
+      "table_name": "course"
     },
     "type": "table"
   }
