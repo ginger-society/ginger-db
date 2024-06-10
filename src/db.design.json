@@ -1,0 +1,169 @@
+[
+  {
+    "id": "student",
+    "position": {
+      "left": 520,
+      "top": 164
+    },
+    "rows": [
+      {
+        "id": "pk",
+        "data": {
+          "name": "pk",
+          "type": "BigAutoField",
+          "field_name": "pk"
+        }
+      },
+      {
+        "id": "name",
+        "data": {
+          "name": "name",
+          "field_name": "name",
+          "type": "CharField",
+          "id": "name"
+        }
+      },
+      {
+        "id": "roll_number",
+        "data": {
+          "name": "roll number",
+          "type": "CharField",
+          "id": "roll_number",
+          "field_name": "roll_number"
+        }
+      },
+      {
+        "id": "on_scholarship",
+        "data": {
+          "field_name": "on_scholarship",
+          "name": "on scholarship",
+          "id": "on_scholarship",
+          "type": "BooleanField"
+        }
+      },
+      {
+        "id": "father_name",
+        "data": {
+          "name": "father name",
+          "field_name": "father_name",
+          "type": "CharField",
+          "id": "father_name"
+        }
+      },
+      {
+        "data": {
+          "type": "TextField",
+          "name": "address",
+          "id": "address",
+          "field_name": "address"
+        },
+        "id": "address"
+      }
+    ],
+    "data": {
+      "id": "student",
+      "table_name": "student",
+      "name": "Student"
+    },
+    "type": "table"
+  },
+  {
+    "id": "course_type",
+    "position": {
+      "left": 1035,
+      "top": 272
+    },
+    "rows": [],
+    "data": {
+      "options": [
+        {
+          "value": "compulsary",
+          "label": "Compulsary"
+        },
+        {
+          "value": "elective",
+          "label": "Elective"
+        }
+      ],
+      "table_name": "course_type",
+      "name": "course type",
+      "id": "course_type"
+    },
+    "type": "enum"
+  },
+  {
+    "id": "enrollment",
+    "position": {
+      "top": 559,
+      "left": 1075
+    },
+    "rows": [
+      {
+        "data": {
+          "type": "BigAutoField",
+          "name": "pk",
+          "field_name": "pk"
+        },
+        "id": "pk"
+      },
+      {
+        "id": "student",
+        "data": {
+          "id": "student",
+          "target": "student",
+          "type": "ForeignKey",
+          "field_name": "student",
+          "name": "student"
+        }
+      },
+      {
+        "id": "course",
+        "data": {
+          "name": "course",
+          "field_name": "course",
+          "id": "course",
+          "target": "course",
+          "type": "ForeignKey"
+        }
+      }
+    ],
+    "data": {
+      "name": "Enrollment",
+      "id": "enrollment",
+      "table_name": "enrollment"
+    },
+    "type": "table"
+  },
+  {
+    "id": "course",
+    "position": {
+      "top": 554,
+      "left": 363
+    },
+    "rows": [
+      {
+        "data": {
+          "field_name": "pk",
+          "type": "BigAutoField",
+          "name": "pk"
+        },
+        "id": "pk"
+      },
+      {
+        "data": {
+          "field_name": "name",
+          "name": "name",
+          "type": "CharField",
+          "id": "name"
+        },
+        "id": "name"
+      }
+    ],
+    "data": {
+      "name": "Course",
+      "id": "course",
+      "table_name": "course"
+    },
+    "type": "table"
+  }
+]
