@@ -105,7 +105,7 @@ fn main() -> Result<()> {
     println!("Hello, world!");
 
     // Open the file in read-only mode with buffer.
-    let file = File::open("src/db.design.json").unwrap();
+    let file = File::open("db.design.json").unwrap();
     let reader = BufReader::new(file);
 
     // Read the JSON contents of the file as an instance of `Schema`.

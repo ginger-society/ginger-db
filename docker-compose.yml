@@ -5,7 +5,7 @@ services:
         container_name: ginger-db-compose-service
         build:
             context: .
-            dockerfile: Dockerfile
+            dockerfile: ./dj/Dockerfile
         command: /bin/sh -c "while sleep 1000; do :; done"
         ports:
             - 8000:8000
