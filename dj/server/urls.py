@@ -18,8 +18,25 @@ Including another URLconf
 from ginger.contrib import admin
 from ginger.urls import include, path
 from src.views import *
+from ginger.drf_yasg.views import get_schema_view
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Snippets API",
+        default_version="v1.0.0",
+        description="Test description",
+        terms_of_service="https://www.google.com/policies/terms/",
+        contact=openapi.Contact(email="contact@snippets.local"),
+        license=openapi.License(name="BSD License"),
+    ),
+    public=True,
+)
 
 urlpatterns = [
+    path("swagger/", schema_view.with_ui("swagger",
+         cache_timeout=0), name="schema-swagger-ui"),
+    path("swagger<format>/", schema_view.without_ui(cache_timeout=0),
+         name="schema-json"),
     path("admin/", admin.site.urls),
     path("models/", get_model_schema),
     path("py-sqlalchemy-models/", get_sqlalchemy_model_schema),
