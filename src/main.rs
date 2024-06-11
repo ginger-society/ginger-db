@@ -102,8 +102,6 @@ struct OptionData {
 }
 
 fn main() -> Result<()> {
-    println!("Hello, world!");
-
     // Open the file in read-only mode with buffer.
     let file = File::open("runner-main/db.design.json").unwrap();
     let reader = BufReader::new(file);
@@ -119,9 +117,9 @@ fn main() -> Result<()> {
         }
     });
     // Print the schemas to see if they are deserialized correctly.
-    for schema in schemas.clone() {
-        println!("{:#?}", schema);
-    }
+    // for schema in schemas.clone() {
+    //     println!("{:#?}", schema);
+    // }
 
     // Use globbing
     let tera = match Tera::new("templates/**/*.tpl") {
