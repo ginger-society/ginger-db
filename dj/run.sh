@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sleep 5
+sleep 3
 
 DB_NAME="test"
 PSQL_USER="postgres"
@@ -21,4 +21,4 @@ unset PGPASSWORD
 
 python manage.py makemigrations
 python manage.py migrate
-# python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000
