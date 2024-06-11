@@ -4,10 +4,8 @@ RUN apt update
 RUN apt install postgresql-client -y
 ENV env prod
 WORKDIR /app
-ADD . /app
-COPY ./requirements.txt /app/requirements.txt
+COPY . /app
 EXPOSE 80
 RUN pip install -r requirements.txt
-ADD run.sh /
-RUN chmod +x /run.sh
+RUN chmod +x run.sh
 CMD ["/bin/bash", "run.sh"]

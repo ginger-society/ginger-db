@@ -1,11 +1,8 @@
 version: '3'
 
 services:
-    compose:
-        container_name: ginger-db-compose-service
-        build:
-            context: .
-            dockerfile: Dockerfile
+    runtime:
+        image: db-compose-runtime:latest
         ports:
             - 8000:8000
         environment:
@@ -17,9 +14,10 @@ services:
             - ALLOWED_HOSTS=localhost
             - CSRF_TRUSTED_ORIGINS=http://localhost
         volumes:
-            - ./:/app
             - ~/.gitconfig:/etc/gitconfig
             - ~/.ssh:/root/.ssh
+            - ./models.py:/app/src/models.py
+            - ./admin.py:/app/src/admin.py
         depends_on:
             - db
     db:
