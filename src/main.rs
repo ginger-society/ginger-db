@@ -1,8 +1,12 @@
+use schemaClient::apis::configuration::Configuration;
+use schemaClient::apis::get_all_models_api;
+use schemaClient::models::ModelsReponse;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Result;
 use std::fs::File;
 use std::io::{BufReader, Write};
+use std::process::exit;
 use tera::Context;
 use tera::Tera;
 
@@ -158,5 +162,33 @@ fn main() -> Result<()> {
         }
     };
 
+    let open_api_config = Configuration {
+        base_path: String::from("http://localhost:8000"),
+        ..Default::default()
+    };
+
+    let app_tables_list = match get_namespace_tables(&open_api_config) {
+        Ok(d) => d,
+        Err(error) => {
+            println!(
+                "Unable to connect to the service, Are you connected to the internet /intranet ? : {}" , error
+            );
+
+            exit(1);
+        }
+    };
+    println!("{:?}", app_tables_list);
+
     Ok(())
+}
+
+#[tokio::main]
+async fn get_namespace_tables(openapi_configuration: &Configuration) -> Result<Vec<ModelsReponse>> {
+    match get_all_models_api::get_all_models_list(&openapi_configuration).await {
+        Ok(response) => Ok(response),
+        Err(error) => {
+            println!("{:?}", error);
+            exit(1);
+        }
+    }
 }

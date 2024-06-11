@@ -15,5 +15,5 @@ db.sqlite3
 prometheus_data
 pgsql
 .mypy_cache
-schema-client
+schema_client
 

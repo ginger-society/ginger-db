@@ -6,5 +6,10 @@ This is a utility CLI app which can be used for
 
 openapi-generator generate -g rust \
  -i http://localhost:8000/swagger/\?format\=openapi \
- -o schema-client \
+ -o schema_client \
  --additional-properties=useSingleRequestParameter=true,packageName=schemaClient
+
+
+
+Notes:
+build image using : docker build . -t db-compose-runtime
