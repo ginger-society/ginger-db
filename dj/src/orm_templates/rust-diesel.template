@@ -1,0 +1,40 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+
+use chrono::NaiveDate;
+use diesel::{deserialize::Queryable, table, Selectable};
+use schemars::JsonSchema;
+use serde::Serialize;
+use chrono::offset::Utc;
+use chrono::DateTime;
+use diesel::Identifiable;
+use diesel::Associations;
+
+{% for key, value in schemas.items %}
+table! {
+    {{value.table_name}} ({% if value.primaryKey %}{{value.primaryKey}}{% endif %}) {
+        {% for fieldname, fieldconfig in  value.fields.items %}{% if fieldconfig.relation_decorator != 'OneToMany' and fieldconfig.pyType != 'ManyToManyField' %}{% if fieldconfig.max_length %}#[max_length = {{fieldconfig.max_length}}]
+        {% endif %}{% if fieldconfig.alias %}{{fieldconfig.original_column_name}}{% else %}{{fieldname}}{% endif %} ->{% if fieldconfig.null%}Nullable<{% endif %}{{fieldconfig.type}}{% if fieldconfig.null%}>{% endif %},
+        {% endif %}{% endfor %}
+    }
+}
+
+#[derive(Queryable, Debug, Selectable, Serialize, JsonSchema{% if value.fields.id %},Identifiable{% endif %}{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
+{% for decoration in value.rust_decorations %}{{decoration | safe}}{% endfor %}
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(table_name = {{value.table_name}})]
+pub struct {{key}} {
+    {% for fieldname, fieldconfig in  value.fields.items %}{% if fieldconfig.relation_decorator != 'OneToMany' and fieldconfig.pyType != 'ManyToManyField' %}pub {% if fieldconfig.alias %}{{fieldconfig.original_column_name}}{% else %}{{fieldname}}{% endif %}:{% if fieldconfig.null%}Option<{% endif %}{{fieldconfig.rustType | safe}}{% if fieldconfig.null%}>{% endif %},
+    {% endif %}{% endfor %}
+}
+{% endfor %}
+
+
+{% for key, value in schemas.items %}
+    {% for relation in value.relation_tables %}{{relation | safe}}{% endfor %}
+{% endfor %}
+
+diesel::allow_tables_to_appear_in_same_query!(
+    {% for key, value in schemas.items %}{{value.table_name}},
+    {% endfor %}
+);

@@ -17,9 +17,14 @@ Including another URLconf
 
 from ginger.contrib import admin
 from ginger.urls import include, path
-
+from src.views import *
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("models/", get_model_schema),
+    path("py-sqlalchemy-models/", get_sqlalchemy_model_schema),
+    path("rust-diesel-models/", get_diesel_model_schema),
+    path("api/render_models", render_models),
+    path("api/get-all-models", get_all_defined_models),
     path("", include("ginger.prometheus.urls")),
 ]

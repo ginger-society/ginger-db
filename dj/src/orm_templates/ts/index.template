@@ -1,0 +1,6 @@
+{% for key, value in data %}
+import {{key}}Entity from './{{key}}.Entity';
+export {default as {{key}}Entity, {{value.exports|join:","}} } from './{{key}}.Entity';
+{% endfor %}
+
+export default [{% for key, value in data %}{{key}}Entity,{% endfor %}];

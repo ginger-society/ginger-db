@@ -1,6 +1,7 @@
 """Settings module"""
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,10 +39,15 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "server.urls"
 
+TEMPLATES_DIR = [
+    os.path.join(BASE_DIR, "src", "orm_templates", "ts"),
+    os.path.join(BASE_DIR, "src", "orm_templates"),
+]
+
 TEMPLATES = [
     {
         "BACKEND": "ginger.template.backends.ginger.GingerTemplates",
-        "DIRS": [],
+        "DIRS": TEMPLATES_DIR,
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -62,7 +68,7 @@ DATABASES = {  # pragma: no cover
         "NAME": 'test',
         "USER": 'postgres',
         "PASSWORD": 'postgres',
-        "HOST": 'db',
+        "HOST": 'localhost',
         "PORT": "5432",
     }
 }
