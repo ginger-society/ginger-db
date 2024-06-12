@@ -39,7 +39,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     // Use globbing
-    let tera = match Tera::new("templates/**/*.tpl") {
+    let tera = match Tera::new("~/Documents/db-compose/templates/**/*.tpl") {
         Ok(t) => t,
         Err(e) => {
             println!("Parsing error(s): {}", e);

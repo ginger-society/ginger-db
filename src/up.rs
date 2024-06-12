@@ -47,5 +47,5 @@ pub fn main(tera: Tera) {
             println!("{:?}", e)
         }
     };
-    println!("Success!. Now cd into the directory and run docker-compose up")
+    println!("Success!.Now CD into the directory and run docker-compose up")
 }
