@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::process::Command;
 use std::{fs::File, io::BufReader};
 
 use tera::{Context, Tera};
@@ -47,5 +48,14 @@ pub fn main(tera: Tera) {
             println!("{:?}", e)
         }
     };
-    println!("Success!.Now CD into the directory and run docker-compose up")
+    let status = Command::new("docker-compose")
+        .arg("up")
+        .status()
+        .expect("failed to execute docker-compose up");
+
+    if status.success() {
+        println!("docker-compose up executed successfully");
+    } else {
+        eprintln!("docker-compose up failed");
+    }
 }
