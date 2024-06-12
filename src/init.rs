@@ -1,4 +1,7 @@
-use std::{fs::File, io::Write};
+use std::{
+    fs::{self, File},
+    io::Write,
+};
 
 use inquire::{required, CustomType, Text};
 use tera::{Context, Tera};
@@ -18,6 +21,8 @@ pub fn main(tera: Tera) {
         .with_validator(required!("This field is required"))
         .prompt()
         .unwrap();
+
+    fs::create_dir_all(&name).unwrap();
 
     let mut context = Context::new();
     context.insert("name", &name);
