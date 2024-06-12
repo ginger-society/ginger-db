@@ -2,11 +2,11 @@
 
 sleep 3
 
-DB_NAME="test"
-PSQL_USER="postgres"
-PSQL_PASSWORD="postgres"
-PSQL_HOST="db"
-PSQL_PORT="5432"
+DB_NAME=${DB_NAME:-"test"}
+PSQL_USER=${DB_USERNAME:-"postgres"}
+PSQL_PASSWORD=${DB_PASSWORD:-"postgres"}
+PSQL_HOST=${DB_HOST:-"db"}
+PSQL_PORT=${DB_PORT:-"5432"}
 
 export PGPASSWORD=$PSQL_PASSWORD
 

@@ -65,21 +65,13 @@ WSGI_APPLICATION = "server.wsgi.application"
 DATABASES = {  # pragma: no cover
     "default": {
         "ENGINE": "ginger.db.backends.postgresql_psycopg2",
-        "NAME": 'test',
-        "USER": 'postgres',
-        "PASSWORD": 'postgres',
-        "HOST": 'db',
-        "PORT": "5432",
+        "NAME": os.getenv('DB_NAME', 'test'),
+        "USER": os.getenv('DB_USERNAME', 'postgres'),
+        "PASSWORD": os.getenv('DB_PASSWORD', 'postgres'),
+        "HOST": os.getenv('DB_HOST', 'db'),
+        "PORT": os.getenv('DB_PORT', '5432'),
     }
 }
-
-
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "ginger.db.backends.sqlite3",
-#         "NAME": "db.sqlite3",
-#     }
-# }
 
 # CACHES = {
 #         "default": {
