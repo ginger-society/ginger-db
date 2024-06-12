@@ -16,13 +16,14 @@ use serde_json::Result;
 use std::fs;
 use std::fs::File;
 use std::io;
-use std::io::Read;
 use std::io::{BufReader, Write};
 use std::path::Path;
 use std::process::exit;
 use tera::Context;
 use tera::Tera;
 use types::DBConfig;
+use types::LANG;
+use types::ORM;
 use utils::read_db_config;
 use utils::write_db_config;
 
@@ -226,7 +227,8 @@ fn main() -> Result<()> {
         Ok(d) => d,
         Err(error) => {
             println!(
-                "Unable to connect to the service, Are you connected to the internet /intranet ? : {}" , error
+                "Unable to connect to the service, Are you connected to the  intranet ? : {}",
+                error
             );
 
             exit(1);
@@ -304,13 +306,13 @@ fn main() -> Result<()> {
 #[tokio::main]
 async fn get_rendered_tables(
     openapi_configuration: &Configuration,
-    language: String,
-    framework: String,
+    language: LANG,
+    framework: ORM,
     tables: String,
 ) -> Result<Vec<RenderedModelsReponse>> {
     let render_models_api_parameter = RenderModelsListParams {
-        language: Some(language),
-        framework: Some(framework),
+        language: Some(language.to_string()),
+        framework: Some(framework.to_string()),
         models: Some(tables),
     };
 

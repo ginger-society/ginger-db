@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Debug, Serialize)]
 pub struct DBSchema {
     pub url: String,
-    pub lang: String,
-    pub orm: String,
+    pub lang: LANG,
+    pub orm: ORM,
     pub root: String,
 }
 
@@ -25,7 +25,7 @@ pub struct DBConfig {
 
 // Database.toml related structs ends
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ORM {
     TypeORM,
     SQLAlchemy,
@@ -43,7 +43,7 @@ impl fmt::Display for ORM {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum LANG {
     Rust,
     TS,
@@ -60,7 +60,7 @@ impl fmt::Display for LANG {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             LANG::Rust => write!(f, "Rust"),
-            LANG::TS => write!(f, "TypeScript ( JS )"),
+            LANG::TS => write!(f, "TS"),
             LANG::Python => write!(f, "Python"),
         }
     }

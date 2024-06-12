@@ -1,8 +1,8 @@
 [schema]
 url = "http://localhost:8000"
-lang = "TS"
-orm = "TypeORM"
+lang = "Rust"
+orm = "Diesel"
 root = "models"
 
 [tables]
-names = ["student", "enrollment"]
+names = []

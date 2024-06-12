@@ -1,8 +1,11 @@
-use std::process::exit;
+use std::{path::Path, process::exit};
 
 use inquire::{InquireError, Select, Text};
 
-use crate::types::{LANG, ORM};
+use crate::{
+    types::{DBConfig, DBSchema, DBTables, LANG, ORM},
+    utils::write_db_config,
+};
 
 pub fn main() {
     let options = LANG::all();
@@ -28,7 +31,7 @@ pub fn main() {
                 Select::new("Which ORM you are using ?", options).prompt();
 
             match orm_selection {
-                Ok(selection) => {
+                Ok(orm_selected) => {
                     match Text::new("Where is the schema server running ?")
                         .with_default("http://localhost:8000")
                         .prompt()
@@ -36,12 +39,24 @@ pub fn main() {
                         Ok(schema_url) => {
                             match Text::new("Where is your models going to be generated").prompt() {
                                 Ok(root) => {
-                                    println!(
-                                        "Language : {:?} ,ORM : {:?} , Schema URL : {:?}, Root: {:?}",
-                                        lang_selected, selection, schema_url, root
-                                    )
+                                    let db_config_path = Path::new("database.toml");
+
+                                    let db_config = DBConfig {
+                                        schema: DBSchema {
+                                            url: schema_url,
+                                            lang: lang_selected,
+                                            orm: orm_selected,
+                                            root: root,
+                                        },
+                                        tables: DBTables { names: vec![] },
+                                    };
+                                    write_db_config(db_config_path, &db_config);
+                                    println!("Success!")
                                 }
-                                Err(_) => {}
+                                Err(_) => {
+                                    println!("Unable to gather all the information needed for initialization");
+                                    exit(1);
+                                }
                             };
                         }
                         Err(_) => {}
