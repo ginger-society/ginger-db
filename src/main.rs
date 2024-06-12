@@ -49,19 +49,20 @@ fn main() -> Result<()> {
 
     let db_config_path = Path::new("database.toml");
 
-    // Read the configuration using the read_db_config function
-    let mut db_config = read_db_config(db_config_path).unwrap();
-
-    let open_api_config = Configuration {
-        base_path: db_config.schema.url.clone(),
-        ..Default::default()
-    };
-
     match args.command {
         Commands::Init => init::main(tera),
         Commands::Up => up::main(tera),
         Commands::Configure => configure::main(),
-        Commands::Render => render::main(&open_api_config, db_config, db_config_path),
+        Commands::Render => {
+            // Read the configuration using the read_db_config function
+            let db_config = read_db_config(db_config_path).unwrap();
+
+            let open_api_config = Configuration {
+                base_path: db_config.schema.url.clone(),
+                ..Default::default()
+            };
+            render::main(&open_api_config, db_config, db_config_path)
+        }
     }
 
     Ok(())

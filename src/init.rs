@@ -5,7 +5,7 @@ use tera::{Context, Tera};
 
 pub fn main(tera: Tera) {
     let port: i32 = CustomType::new("Port:")
-        .with_formatter(&|i: i32| format!("${i}"))
+        .with_formatter(&|i: i32| format!("{i}"))
         .with_error_message("Please type a valid port number")
         .with_default(5432)
         .with_help_message(
