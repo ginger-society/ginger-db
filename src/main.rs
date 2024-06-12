@@ -23,6 +23,7 @@ use std::process::exit;
 use tera::Context;
 use tera::Tera;
 use types::DBConfig;
+use utils::read_db_config;
 use utils::write_db_config;
 
 mod configure;
@@ -155,9 +156,9 @@ fn main() -> Result<()> {
 
     match args.command {
         Commands::Init => init::main(),
-        Commands::Render => {}
         Commands::Up => {}
         Commands::Configure => configure::main(),
+        Commands::Render => {}
     }
 
     // Open the file in read-only mode with buffer.
@@ -235,7 +236,7 @@ fn main() -> Result<()> {
     let db_config_path = Path::new("database.toml");
 
     // Read the configuration using the read_db_config function
-    let mut db_config = read_db_config(db_config_path)?;
+    let mut db_config = read_db_config(db_config_path).unwrap();
 
     let mut all_tables: Vec<String> = vec![];
     let mut selected_table_indexes: Vec<usize> = vec![];
@@ -402,16 +403,4 @@ async fn get_namespace_tables(openapi_configuration: &Configuration) -> Result<V
             exit(1);
         }
     }
-}
-
-fn read_db_config<P: AsRef<Path>>(path: P) -> Result<DBConfig> {
-    // Open the file
-    let mut file = File::open(path).unwrap();
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).unwrap();
-
-    // Deserialize the TOML contents into the DBConfig struct
-    let config: DBConfig = toml::from_str(&contents).unwrap();
-
-    Ok(config)
 }
