@@ -23,12 +23,16 @@ use std::process::exit;
 use tera::Context;
 use tera::Tera;
 
+mod init;
+
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Initialize the database project
+    /// Initialize a database project
     Init,
-    /// Bring up the database configuration like docker-compose
+    /// Bring up the database up just like docker-compose
     Up,
+    /// Configures a new db connection in a project
+    Configure,
     /// Generate the ORM models files as per the configuration
     Render,
 }
@@ -167,6 +171,14 @@ struct OptionData {
 fn main() -> Result<()> {
     let args = Args::parse();
     println!("{:?}", args);
+
+    match args.command {
+        Commands::Init => init::main(),
+        Commands::Render => {}
+        Commands::Up => {}
+        Commands::Configure => {}
+    }
+
     // Open the file in read-only mode with buffer.
     let file = File::open("runner-main/db.design.json").unwrap();
     let reader = BufReader::new(file);
