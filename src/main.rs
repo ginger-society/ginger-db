@@ -1,3 +1,5 @@
+use clap::Parser;
+use clap::Subcommand;
 use inquire::formatter::MultiOptionFormatter;
 use inquire::list_option::ListOption;
 use inquire::validator::Validation;
@@ -20,6 +22,26 @@ use std::path::Path;
 use std::process::exit;
 use tera::Context;
 use tera::Tera;
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Initialize the database project
+    Init,
+    /// Bring up the database configuration like docker-compose
+    Up,
+    /// Generate the ORM models files as per the configuration
+    Render,
+}
+
+#[derive(Parser, Debug)]
+#[command(name = "db-compose")]
+#[command(about = "A database composition tool", long_about = None)]
+#[command(version, long_about = None)]
+struct Args {
+    /// name of the command to run
+    #[command(subcommand)]
+    command: Commands,
+}
 
 // Database.toml related start
 
@@ -143,6 +165,8 @@ struct OptionData {
 // Ginger models generator structs ends
 
 fn main() -> Result<()> {
+    let args = Args::parse();
+    println!("{:?}", args);
     // Open the file in read-only mode with buffer.
     let file = File::open("runner-main/db.design.json").unwrap();
     let reader = BufReader::new(file);
@@ -150,7 +174,7 @@ fn main() -> Result<()> {
     // Read the JSON contents of the file as an instance of `Schema`.
     let mut schemas: Vec<Schema> = serde_json::from_reader(reader).unwrap();
 
-    schemas.sort_by(|a, b| {
+    schemas.sort_by(|a, _b| {
         if a.schema_type == SchemaType::Enum {
             std::cmp::Ordering::Less
         } else {
@@ -218,7 +242,7 @@ fn main() -> Result<()> {
     let db_config_path = Path::new("database.toml");
 
     // Read the configuration using the read_db_config function
-    let mut dbConfig = read_db_config(db_config_path)?;
+    let mut db_config = read_db_config(db_config_path)?;
 
     let mut all_tables: Vec<String> = vec![];
     let mut selected_table_indexes: Vec<usize> = vec![];
@@ -227,7 +251,7 @@ fn main() -> Result<()> {
     }
 
     for (itter_count, table_meta) in all_tables.iter().enumerate() {
-        if dbConfig.tables.names.contains(&table_meta) {
+        if db_config.tables.names.contains(&table_meta) {
             selected_table_indexes.push(itter_count);
         }
     }
@@ -260,9 +284,9 @@ fn main() -> Result<()> {
 
     match ans {
         Ok(selected_tables) => {
-            dbConfig.tables.names = selected_tables.clone();
+            db_config.tables.names = selected_tables.clone();
 
-            write_db_config(db_config_path, &dbConfig)?;
+            write_db_config(db_config_path, &db_config)?;
             println!("Generating models...");
 
             let mut csv_list = String::from("");
@@ -273,7 +297,7 @@ fn main() -> Result<()> {
                 csv_list += &selection;
             }
 
-            fetch_and_process_models(&open_api_config, csv_list, dbConfig)
+            fetch_and_process_models(&open_api_config, csv_list, db_config)
         }
         Err(error) => eprintln!("{}", error),
     }
@@ -314,20 +338,24 @@ pub fn remove_dir_contents<P: AsRef<Path>>(path: P) -> io::Result<()> {
     Ok(())
 }
 
-fn fetch_and_process_models(open_api_config: &Configuration, csv_list: String, dbConfig: DBConfig) {
+fn fetch_and_process_models(
+    open_api_config: &Configuration,
+    csv_list: String,
+    db_config: DBConfig,
+) {
     match get_rendered_tables(
         open_api_config,
-        dbConfig.schema.lang,
-        dbConfig.schema.orm,
+        db_config.schema.lang,
+        db_config.schema.orm,
         csv_list,
     ) {
         Ok(models) => {
-            match fs::create_dir_all(&dbConfig.schema.root) {
+            match fs::create_dir_all(&db_config.schema.root) {
                 Ok(_) => {}
                 Err(err) => println!("{:?}", err),
             };
 
-            let models_folder = dbConfig.schema.root;
+            let models_folder = db_config.schema.root;
             match fs::create_dir_all(&models_folder) {
                 Ok(_) => {}
                 Err(err) => println!("{:?}", err),
