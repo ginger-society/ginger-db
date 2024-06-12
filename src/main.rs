@@ -1,15 +1,50 @@
+use inquire::formatter::MultiOptionFormatter;
+use inquire::list_option::ListOption;
+use inquire::validator::Validation;
+use inquire::MultiSelect;
 use schemaClient::apis::configuration::Configuration;
 use schemaClient::apis::get_all_models_api;
+use schemaClient::apis::render_models_api;
+use schemaClient::apis::render_models_api::RenderModelsListParams;
 use schemaClient::models::ModelsReponse;
+use schemaClient::models::RenderedModelsReponse;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Result;
+use std::fs;
 use std::fs::File;
+use std::io;
+use std::io::Read;
 use std::io::{BufReader, Write};
+use std::path::Path;
 use std::process::exit;
 use tera::Context;
 use tera::Tera;
 
+// Database.toml related start
+
+#[derive(Deserialize, Debug, Serialize)]
+struct DBSchema {
+    url: String,
+    lang: String,
+    orm: String,
+    root: String,
+}
+
+#[derive(Deserialize, Debug, Serialize)]
+struct DBTables {
+    names: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Serialize)]
+struct DBConfig {
+    schema: DBSchema,
+    tables: DBTables,
+}
+
+// Database.toml related structs ends
+
+// Ginger models generator structs starts
 #[derive(Deserialize, Debug, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum OnDeleteOptions {
@@ -105,6 +140,8 @@ struct OptionData {
     label: String,
 }
 
+// Ginger models generator structs ends
+
 fn main() -> Result<()> {
     // Open the file in read-only mode with buffer.
     let file = File::open("runner-main/db.design.json").unwrap();
@@ -140,7 +177,7 @@ fn main() -> Result<()> {
 
     match tera.render("models.py.tpl", &context) {
         Ok(rendered_template) => {
-            println!("{:?}", rendered_template);
+            // println!("{:?}", rendered_template);
 
             let mut output_file = File::create("runner-main/models.py").unwrap();
             output_file.write_all(rendered_template.as_bytes()).unwrap();
@@ -152,7 +189,7 @@ fn main() -> Result<()> {
 
     match tera.render("admin.py.tpl", &context) {
         Ok(rendered_template) => {
-            println!("{:?}", rendered_template);
+            // println!("{:?}", rendered_template);
 
             let mut output_file = File::create("runner-main/admin.py").unwrap();
             output_file.write_all(rendered_template.as_bytes()).unwrap();
@@ -177,9 +214,169 @@ fn main() -> Result<()> {
             exit(1);
         }
     };
-    println!("{:?}", app_tables_list);
+
+    let db_config_path = Path::new("database.toml");
+
+    // Read the configuration using the read_db_config function
+    let mut dbConfig = read_db_config(db_config_path)?;
+
+    let mut all_tables: Vec<String> = vec![];
+    let mut selected_table_indexes: Vec<usize> = vec![];
+    for table in app_tables_list.iter() {
+        all_tables.push(String::from(&table.name));
+    }
+
+    for (itter_count, table_meta) in all_tables.iter().enumerate() {
+        if dbConfig.tables.names.contains(&table_meta) {
+            selected_table_indexes.push(itter_count);
+        }
+    }
+
+    // println!("{:?}", selected_table_indexes);
+
+    let model_selector_validator = |a: &[ListOption<&String>]| {
+        if a.len() < 1 {
+            return Ok(Validation::Invalid(
+                "At least one table is required!".into(),
+            ));
+        }
+        Ok(Validation::Valid)
+    };
+
+    let model_selector_formatter: MultiOptionFormatter<'_, String> =
+        &|a| format!("{:?}", get_formated_str_selected_models(a));
+
+    let ans = MultiSelect::new(
+        "Select the tables you want to add to this project ",
+        all_tables,
+    )
+    .with_validator(model_selector_validator)
+    .with_formatter(model_selector_formatter)
+    .with_page_size(20)
+    .with_default(&selected_table_indexes)
+    .prompt();
+
+    // println!("{:?}", ans);
+
+    match ans {
+        Ok(selected_tables) => {
+            dbConfig.tables.names = selected_tables.clone();
+
+            write_db_config(db_config_path, &dbConfig)?;
+            println!("Generating models...");
+
+            let mut csv_list = String::from("");
+            for (itter_count, selection) in selected_tables.iter().enumerate() {
+                if itter_count > 0 {
+                    csv_list += &String::from(",");
+                }
+                csv_list += &selection;
+            }
+
+            fetch_and_process_models(&open_api_config, csv_list, dbConfig)
+        }
+        Err(error) => eprintln!("{}", error),
+    }
+
+    // println!("{:?}", app_tables_list);
 
     Ok(())
+}
+
+#[tokio::main]
+async fn get_rendered_tables(
+    openapi_configuration: &Configuration,
+    language: String,
+    framework: String,
+    tables: String,
+) -> Result<Vec<RenderedModelsReponse>> {
+    let render_models_api_parameter = RenderModelsListParams {
+        language: Some(language),
+        framework: Some(framework),
+        models: Some(tables),
+    };
+
+    match render_models_api::render_models_list(&openapi_configuration, render_models_api_parameter)
+        .await
+    {
+        Ok(response) => Ok(response),
+        Err(e) => {
+            eprintln!("Error: {:?}", e);
+            exit(1);
+        }
+    }
+}
+
+pub fn remove_dir_contents<P: AsRef<Path>>(path: P) -> io::Result<()> {
+    for entry in fs::read_dir(path)? {
+        fs::remove_file(entry?.path())?;
+    }
+    Ok(())
+}
+
+fn fetch_and_process_models(open_api_config: &Configuration, csv_list: String, dbConfig: DBConfig) {
+    match get_rendered_tables(
+        open_api_config,
+        dbConfig.schema.lang,
+        dbConfig.schema.orm,
+        csv_list,
+    ) {
+        Ok(models) => {
+            match fs::create_dir_all(&dbConfig.schema.root) {
+                Ok(_) => {}
+                Err(err) => println!("{:?}", err),
+            };
+
+            let models_folder = dbConfig.schema.root;
+            match fs::create_dir_all(&models_folder) {
+                Ok(_) => {}
+                Err(err) => println!("{:?}", err),
+            };
+            match remove_dir_contents(&models_folder) {
+                Ok(_) => {
+                    for model in models.iter() {
+                        let file_path = format!("{}/{}", &models_folder, &model.file_name);
+                        let _ = match File::create(file_path) {
+                            Ok(mut c) => {
+                                println!("Writing {}", model.file_name);
+                                c.write_all(model.file_content.as_bytes())
+                            }
+                            Err(_) => {
+                                eprintln!("Unable write the models files");
+                                exit(1)
+                            }
+                        };
+                    }
+                    println!("Note : Some of the models are added automatically even if you have not selected them, this is because one model can depened upon multiple models in a M2M or ForeignKey relationship");
+                }
+                Err(error) => {
+                    println!("{:?}", error)
+                }
+            };
+        }
+        Err(error) => {
+            eprintln!("Error writing model files : {}", error)
+        }
+    };
+}
+
+fn write_db_config<P: AsRef<Path>>(path: P, config: &DBConfig) -> Result<()> {
+    let toml_string = toml::to_string(config).unwrap();
+    let mut file = File::create(path).unwrap();
+    file.write_all(toml_string.as_bytes()).unwrap();
+    Ok(())
+}
+
+fn get_formated_str_selected_models(a: &[ListOption<&String>]) -> String {
+    let mut output = String::from("");
+    for (itter_count, selection) in a.iter().enumerate() {
+        println!("{:?}", selection);
+        if itter_count > 0 {
+            output += &String::from(",");
+        }
+        output += &selection.value;
+    }
+    return output;
 }
 
 #[tokio::main]
@@ -191,4 +388,16 @@ async fn get_namespace_tables(openapi_configuration: &Configuration) -> Result<V
             exit(1);
         }
     }
+}
+
+fn read_db_config<P: AsRef<Path>>(path: P) -> Result<DBConfig> {
+    // Open the file
+    let mut file = File::open(path).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+
+    // Deserialize the TOML contents into the DBConfig struct
+    let config: DBConfig = toml::from_str(&contents).unwrap();
+
+    Ok(config)
 }
