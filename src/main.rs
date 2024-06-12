@@ -22,8 +22,13 @@ use std::path::Path;
 use std::process::exit;
 use tera::Context;
 use tera::Tera;
+use types::DBConfig;
+use utils::write_db_config;
 
+mod configure;
 mod init;
+mod types;
+mod utils;
 
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -46,29 +51,6 @@ struct Args {
     #[command(subcommand)]
     command: Commands,
 }
-
-// Database.toml related start
-
-#[derive(Deserialize, Debug, Serialize)]
-struct DBSchema {
-    url: String,
-    lang: String,
-    orm: String,
-    root: String,
-}
-
-#[derive(Deserialize, Debug, Serialize)]
-struct DBTables {
-    names: Vec<String>,
-}
-
-#[derive(Deserialize, Debug, Serialize)]
-struct DBConfig {
-    schema: DBSchema,
-    tables: DBTables,
-}
-
-// Database.toml related structs ends
 
 // Ginger models generator structs starts
 #[derive(Deserialize, Debug, Serialize, Clone, PartialEq, Eq)]
@@ -170,13 +152,12 @@ struct OptionData {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    println!("{:?}", args);
 
     match args.command {
         Commands::Init => init::main(),
         Commands::Render => {}
         Commands::Up => {}
-        Commands::Configure => {}
+        Commands::Configure => configure::main(),
     }
 
     // Open the file in read-only mode with buffer.
@@ -298,7 +279,7 @@ fn main() -> Result<()> {
         Ok(selected_tables) => {
             db_config.tables.names = selected_tables.clone();
 
-            write_db_config(db_config_path, &db_config)?;
+            write_db_config(db_config_path, &db_config);
             println!("Generating models...");
 
             let mut csv_list = String::from("");
@@ -398,13 +379,6 @@ fn fetch_and_process_models(
             eprintln!("Error writing model files : {}", error)
         }
     };
-}
-
-fn write_db_config<P: AsRef<Path>>(path: P, config: &DBConfig) -> Result<()> {
-    let toml_string = toml::to_string(config).unwrap();
-    let mut file = File::create(path).unwrap();
-    file.write_all(toml_string.as_bytes()).unwrap();
-    Ok(())
 }
 
 fn get_formated_str_selected_models(a: &[ListOption<&String>]) -> String {

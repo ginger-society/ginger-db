@@ -1,3 +1,3 @@
 pub fn main() {
-    // println!("Init command handler")
+    println!("Init a new DB project")
 }
