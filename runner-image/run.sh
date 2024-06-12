@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sleep 3
+sleep 5
 
 DB_NAME=${DB_NAME:-"test"}
 PSQL_USER=${DB_USERNAME:-"postgres"}

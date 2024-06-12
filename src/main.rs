@@ -4,12 +4,13 @@ use clap::Subcommand;
 use schemaClient::apis::configuration::Configuration;
 use serde_json::Result;
 use std::path::Path;
-use tera::Tera;
+use templates::get_renderer;
 use utils::read_db_config;
 
 mod configure;
 mod init;
 mod render;
+mod templates;
 mod types;
 mod up;
 mod utils;
@@ -39,14 +40,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     // Use globbing
-    let tera = match Tera::new("~/Documents/db-compose/templates/**/*.tpl") {
-        Ok(t) => t,
-        Err(e) => {
-            println!("Parsing error(s): {}", e);
-            ::std::process::exit(1);
-        }
-    };
-
+    let tera = get_renderer();
     let db_config_path = Path::new("database.toml");
 
     match args.command {
