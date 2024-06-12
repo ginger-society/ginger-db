@@ -7,7 +7,7 @@ use crate::types::{Schema, SchemaType};
 
 pub fn main(tera: Tera) {
     // Open the file in read-only mode with buffer.
-    let file = File::open("runner-main/db.design.json").unwrap();
+    let file = File::open("db.design.json").unwrap();
     let reader = BufReader::new(file);
 
     // Read the JSON contents of the file as an instance of `Schema`.
@@ -28,7 +28,7 @@ pub fn main(tera: Tera) {
         Ok(rendered_template) => {
             // println!("{:?}", rendered_template);
 
-            let mut output_file = File::create("runner-main/models.py").unwrap();
+            let mut output_file = File::create("models.py").unwrap();
             output_file.write_all(rendered_template.as_bytes()).unwrap();
         }
         Err(e) => {
@@ -40,12 +40,12 @@ pub fn main(tera: Tera) {
         Ok(rendered_template) => {
             // println!("{:?}", rendered_template);
 
-            let mut output_file = File::create("runner-main/admin.py").unwrap();
+            let mut output_file = File::create("admin.py").unwrap();
             output_file.write_all(rendered_template.as_bytes()).unwrap();
         }
         Err(e) => {
             println!("{:?}", e)
         }
     };
-    println!("Success!. Now run docker-compose up")
+    println!("Success!. Now cd into the directory and run docker-compose up")
 }

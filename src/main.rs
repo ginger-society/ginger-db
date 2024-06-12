@@ -58,7 +58,7 @@ fn main() -> Result<()> {
     };
 
     match args.command {
-        Commands::Init => init::main(),
+        Commands::Init => init::main(tera),
         Commands::Up => up::main(tera),
         Commands::Configure => configure::main(),
         Commands::Render => render::main(&open_api_config, db_config, db_config_path),

@@ -1,7 +1,7 @@
 [
   {
     "id": "student",
-    "position": { "left": 368, "top": 109 },
+    "position": { "top": 108, "left": 77 },
     "rows": [
       {
         "data": { "field_name": "pk", "name": "pk", "type": "BigAutoField" },

@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-    runtime:
+    {{name}}-runtime:
         image: db-compose-runtime:latest
         ports:
             - 8000:8000
@@ -17,14 +17,14 @@ services:
             - ./models.py:/app/src/models.py
             - ./admin.py:/app/src/admin.py
         depends_on:
-            - db
-    db:
+            - {{name}}-db
+    {{name}}-db:
         image: postgres:14.1-alpine
         restart: always
         environment:
             - POSTGRES_USER=postgres
             - POSTGRES_PASSWORD=postgres
         ports:
-            - 5432:5432
+            - {{port}}:5432
         volumes:
             - ./pgsql:/var/lib/postgresql/data

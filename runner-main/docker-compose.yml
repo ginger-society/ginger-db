@@ -14,8 +14,6 @@ services:
             - ALLOWED_HOSTS=localhost
             - CSRF_TRUSTED_ORIGINS=http://localhost
         volumes:
-            - ~/.gitconfig:/etc/gitconfig
-            - ~/.ssh:/root/.ssh
             - ./models.py:/app/src/models.py
             - ./admin.py:/app/src/admin.py
         depends_on:
