@@ -2,15 +2,15 @@ version: '3'
 
 services:
     {{name}}-runtime:
-        image: db-compose-runtime:latest
+        image: gingersociety/db-compose-runtime:latest
         ports:
-            - 8000:8000
+            - {{studio_port}}:8000
         environment:
             - DB_NAME={{name}}-db
-            - DB_USERNAME=postgres
-            - DB_PASSWORD=postgres
+            - DB_USERNAME={{db_username}}
+            - DB_PASSWORD={{db_password}}
             - DB_HOST={{name}}-db
-            - DB_PORT={{port}}
+            - DB_PORT=5432
         volumes:
             - ./models.py:/app/src/models.py
             - ./admin.py:/app/src/admin.py
@@ -20,8 +20,8 @@ services:
         image: postgres:14.1-alpine
         restart: always
         environment:
-            - POSTGRES_USER=postgres
-            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_USER={{db_password}}
+            - POSTGRES_PASSWORD={{db_password}}
         ports:
             - {{port}}:5432
         volumes:
