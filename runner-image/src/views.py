@@ -445,9 +445,9 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             "relation_tables": [],
                             "rust_derive": ["Associations"],
                             "rust_decorations": [
-                                "#[diesel(belongs_to(" + target_model_name +
+                                "#[diesel(belongs_to(" + target_model_name.capitalize() +
                                 ", foreign_key = " + target_model_name.lower() + "_id" + "))]",
-                                "#[diesel(belongs_to(" + model.__name__ +
+                                "#[diesel(belongs_to(" + model.__name__.capitalize() +
                                 ", foreign_key = " + model.__name__.lower() + "_id" + "))]",
                             ],
                             "rust_related_models": [],
@@ -581,7 +581,7 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                                 relationshipStr)
 
                             schema_obj[model.__name__]["rust_decorations"].append(
-                                "#[diesel(belongs_to(" + target_model_name +
+                                "#[diesel(belongs_to(" + target_model_name.capitalize() +
                                 ", foreign_key = " + field_def.field.column + "))]"
                             )
 
@@ -696,7 +696,7 @@ def render_models(request):
         return ts_models(models_to_render)
     if lang == "Python" and framework == "SQLAlchemy":
         return py_sqlachmy_models(models_to_render)
-    if lang == "Rust" and framework == "rust-diesel":
+    if lang == "Rust" and framework == "Diesel":
         return rust_diesel_models(models_to_render)
 
     return JsonResponse({"message": lang + " is not supported as of now"}, status=400)
@@ -771,8 +771,8 @@ def rust_diesel_models(models_to_render):
     )
     rendered_files.append(
         {"file_name": "schema.rs", "file_content": rendered_models})
-    rendered_files.append(
-        {"file_name": "mod.rs", "file_content": "pub mod schema;"})
+    # rendered_files.append(
+    #     {"file_name": "mod.rs", "file_content": "pub mod schema;"})
 
     return JsonResponse(rendered_files, safe=False)
 

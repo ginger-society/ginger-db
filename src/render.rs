@@ -16,7 +16,25 @@ use schemaClient::models::{ModelsReponse, RenderedModelsReponse};
 use crate::types::{DBConfig, LANG, ORM};
 use crate::utils::write_db_config;
 
-pub fn main(open_api_config: &Configuration, mut db_config: DBConfig, db_config_path: &Path) {
+pub fn main(
+    open_api_config: &Configuration,
+    mut db_config: DBConfig,
+    db_config_path: &Path,
+    skip: bool,
+) {
+    if skip {
+        let selected_tables = &db_config.tables;
+        let mut csv_list = String::from("");
+        for (itter_count, selection) in selected_tables.names.iter().enumerate() {
+            if itter_count > 0 {
+                csv_list += &String::from(",");
+            }
+            csv_list += &selection;
+        }
+        fetch_and_process_models(&open_api_config, csv_list, db_config);
+        return;
+    }
+
     let app_tables_list = match get_namespace_tables(&open_api_config) {
         Ok(d) => d,
         Err(error) => {
@@ -141,27 +159,28 @@ fn fetch_and_process_models(
                 Ok(_) => {}
                 Err(err) => println!("{:?}", err),
             };
-            match remove_dir_contents(&models_folder) {
-                Ok(_) => {
-                    for model in models.iter() {
-                        let file_path = format!("{}/{}", &models_folder, &model.file_name);
-                        let _ = match File::create(file_path) {
-                            Ok(mut c) => {
-                                println!("Writing {}", model.file_name);
-                                c.write_all(model.file_content.as_bytes())
-                            }
-                            Err(_) => {
-                                eprintln!("Unable write the models files");
-                                exit(1)
-                            }
-                        };
+            // match remove_dir_contents(&models_folder) {
+            //     Ok(_) => {
+
+            //     }
+            //     Err(error) => {
+            //         println!("{:?}", error)
+            //     }
+            // };
+            for model in models.iter() {
+                let file_path = format!("{}/{}", &models_folder, &model.file_name);
+                let _ = match File::create(file_path) {
+                    Ok(mut c) => {
+                        println!("Writing {}", model.file_name);
+                        c.write_all(model.file_content.as_bytes())
                     }
-                    println!("Note : Some of the models are added automatically even if you have not selected them, this is because one model can depened upon multiple models in a M2M or ForeignKey relationship");
-                }
-                Err(error) => {
-                    println!("{:?}", error)
-                }
-            };
+                    Err(_) => {
+                        eprintln!("Unable write the models files");
+                        exit(1)
+                    }
+                };
+            }
+            println!("Note : Some of the models are added automatically even if you have not selected them, this is because one model can depened upon multiple models in a M2M or ForeignKey relationship");
         }
         Err(error) => {
             eprintln!("Error writing model files : {}", error)

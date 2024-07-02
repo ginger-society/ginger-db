@@ -1,5 +1,4 @@
-use clap::Parser;
-use clap::Subcommand;
+use clap::{Arg, Parser, Subcommand};
 
 use schemaClient::apis::configuration::Configuration;
 use serde_json::Result;
@@ -24,7 +23,11 @@ enum Commands {
     /// Configures a new db connection in a project
     Configure,
     /// Generate the ORM models files as per the configuration
-    Render,
+    Render {
+        /// Skip the rendering of certain files
+        #[arg(short, long)]
+        skip: bool,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -47,7 +50,7 @@ fn main() -> Result<()> {
         Commands::Init => init::main(tera),
         Commands::Up => up::main(tera),
         Commands::Configure => configure::main(),
-        Commands::Render => {
+        Commands::Render { skip } => {
             // Read the configuration using the read_db_config function
             let db_config = read_db_config(db_config_path).unwrap();
 
@@ -55,7 +58,7 @@ fn main() -> Result<()> {
                 base_path: db_config.schema.url.clone(),
                 ..Default::default()
             };
-            render::main(&open_api_config, db_config, db_config_path)
+            render::main(&open_api_config, db_config, db_config_path, skip)
         }
     }
 
