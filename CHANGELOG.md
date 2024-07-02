@@ -1,8 +1,28 @@
+## 0.3.0-nightly.0 - 2024-07-02
+feat:
+ - [f2a7b50b0a](f2a7b50b0a80c72e83856158783813c3d3db20eb) (Ginger Society Admin) feat: added Insertable structs for diesel orm models, added mongodb UI support
+	
 ## 0.2.0-nightly.0 - 2024-07-02
 chore:
+ - [79ada9a9d0](79ada9a9d074d76b6b54543b21b6e9c4c10378d0) (Ginger Society Admin) chore: version bump to 0.2.0-nightly.0
+	
  - [fe47ad6e55](fe47ad6e552d0d06eff4e9a4b99907348f821be6) (Ginger Society Admin) chore: commited changelog.md
 	
 ## 0.1.0-nightly.0 - 2024-07-02
+fix:
+ - [54eb1fbe66](54eb1fbe66b695ee3be5648e62a51995cee07b0b) (Ginger Society Admin) fix: docker compose
+	
+chore:
+ - [394747d041](394747d0416b12a653043330993edb82b54c34da) (Ginger Society Admin) chore: version bump to 0.1.0-nightly.0
+	
+ - [87a9ea2e06](87a9ea2e068093a458b7283901763ffd500a7acb) (Ginger Society Admin) chore: cleanup
+	
+ - [10a0fd0464](10a0fd04640a6309d2a1748dd822f4c879498197) (Ginger Society Admin) chore: minor changes
+	
+ - [38bf498183](38bf498183b56a4021fdb87fb45e9329bea8f814) (Ginger Society Admin) chore: minor refactoring
+	
+ - [842b164e38](842b164e38905270c4591f17fbcb818b180ad825) (Ginger Society Admin) chore: first commit
+	
 feat:
  - [a7f246ae36](a7f246ae36bdf5048f76f8053b3adbcf91feb16c) (Ginger Society Admin) feat: added releaser support
 	
@@ -87,18 +107,4 @@ feat:
  - [839111d507](839111d507b9053dc35f724d5fa4806fbf0e79c2) (Ginger Society Admin) feat: added tera context and rendering
 	
  - [aa1d663287](aa1d663287346cd278fbacb06bddafd8c9ed38ba) (Ginger Society Admin) feat: added Schema structs
-	
-fix:
- - [54eb1fbe66](54eb1fbe66b695ee3be5648e62a51995cee07b0b) (Ginger Society Admin) fix: docker compose
-	
-chore:
- - [394747d041](394747d0416b12a653043330993edb82b54c34da) (Ginger Society Admin) chore: version bump to 0.1.0-nightly.0
-	
- - [87a9ea2e06](87a9ea2e068093a458b7283901763ffd500a7acb) (Ginger Society Admin) chore: cleanup
-	
- - [10a0fd0464](10a0fd04640a6309d2a1748dd822f4c879498197) (Ginger Society Admin) chore: minor changes
-	
- - [38bf498183](38bf498183b56a4021fdb87fb45e9329bea8f814) (Ginger Society Admin) chore: minor refactoring
-	
- - [842b164e38](842b164e38905270c4591f17fbcb818b180ad825) (Ginger Society Admin) chore: first commit
 	
