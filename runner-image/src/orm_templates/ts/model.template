@@ -1,7 +1,10 @@
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { Entity, PrimaryGeneratedColumn, Column, {% for import in relation_imports %}{{import}}, {% endfor %} } from "typeorm";
 
 {% for model in model_imports %}
-import {{model}}Entity from "./{{model}}.Entity";
+import {{model | title}}Entity from "./{{model}}.Entity";
 {% endfor %}
 
 {% for enum in enums %}
@@ -14,7 +17,7 @@ export enum {{enum.name}} {
 {% endfor %}
 
 @Entity("{{table_name}}")
-export default class {{name}}Entity {
+export default class {{name | title}}Entity {
   /*
   *{{docs}}
   */

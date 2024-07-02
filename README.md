@@ -13,3 +13,4 @@ openapi-generator generate -g rust \
 
 Notes:
 build image using : docker build . -t db-compose-runtime
+To push : docker push gingersociety/db-compose-runtime:latest

@@ -21,6 +21,7 @@ from ginger.drf_yasg import openapi
 from ginger.drf_yasg.utils import swagger_auto_schema
 from ginger.rest_framework import serializers
 from ginger.rest_framework.decorators import api_view
+from ginger.template.defaultfilters import title
 
 # from rest_framework.fields import empty
 
@@ -274,7 +275,7 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                         schema_obj[model.__name__]["fields"][field]["type"] = field + "Enum"
                     elif orm == "py-sqlalchemy":
                         schema_obj[model.__name__]["fields"][field][
-                            "type"] = "Enum(" + field + "Enum)"
+                            "type"] = "Enum(" + title(field) + "Enum)"
 
                 elif field_def.field.primary_key:
                     if orm == "typeORM":
@@ -336,7 +337,8 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
 
                     # print('------' , target_model_name, anchor_model)
                     if orm == "typeORM":
-                        schema_obj[model.__name__]["fields"][field]["type"] = target_model_name + "Entity"
+                        schema_obj[model.__name__]["fields"][field]["type"] = title(
+                            target_model_name) + "Entity"
                         schema_obj[model.__name__]["model_imports"].append(
                             target_model_name)
                         schema_obj[model.__name__]["fields"][field]["foreign_key_target"] = target_model_name
@@ -350,9 +352,9 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             {
                                 "tag": relation_decorator,
                                 "inputStr": "() => "
-                                + target_model_name
+                                + title(target_model_name)
                                 + "Entity, (currentModel:"
-                                + target_model_name
+                                + title(target_model_name)
                                 + "Entity"
                                 + ") => currentModel."
                                 + related_name,
@@ -379,7 +381,7 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                         schema_obj[model.__name__]["fields"][field]["decorators"].append(
                             'back_populates="' + related_name + '"')
                         schema_obj[model.__name__]["fields"][field]["pydenticType"] = "list[" + \
-                            '"' + target_model_name + '"' + "]"
+                            '"' + title(target_model_name) + '"' + "]"
 
                         if anchor_model:
                             # print("anchor fielddef", field_def.field, target_column_name, target_app)
@@ -470,7 +472,8 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                     schema_obj[model.__name__]["fields"][field]["foreign_key_target"] = target_model_name
                     schema_obj[model.__name__]["fields"][field]["target_app"] = target_app
                     if orm == "typeORM":
-                        schema_obj[model.__name__]["fields"][field]["type"] = target_model_name + "Entity"
+                        schema_obj[model.__name__]["fields"][field]["type"] = target_model_name.capitalize(
+                        ) + "Entity"
 
                         schema_obj[model.__name__]["model_imports"].append(
                             target_model_name)
@@ -492,9 +495,9 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                                 {
                                     "tag": relation_decorator,
                                     "inputStr": "() => "
-                                    + target_model_name
+                                    + target_model_name.capitalize()
                                     + "Entity, (currentModel:"
-                                    + target_model_name
+                                    + target_model_name.capitalize()
                                     + "Entity"
                                     + ") => currentModel."
                                     + related_name
@@ -516,7 +519,7 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                                 {
                                     "tag": relation_decorator,
                                     "inputStr": "() => "
-                                    + target_model_name
+                                    + target_model_name.capitalize()
                                     + "Entity, ("
                                     + target_model_name.lower()
                                     + ") => "
@@ -528,7 +531,7 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                     elif orm == "py-sqlalchemy":
                         if relation_decorator == "OneToMany":
                             schema_obj[model.__name__]["fields"][field]["pydenticType"] = 'list["' + \
-                                target_model_name + '"]'
+                                title(target_model_name) + '"]'
                             schema_obj[model.__name__]["fields"][field]["no_type"] = True
                             schema_obj[model.__name__]["fields"][field]["decorators"].append(
                                 'back_populates="' + related_name + '"')
@@ -538,7 +541,7 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             # print("changing mapped_column to relationsip for" , field)
                         else:
                             schema_obj[model.__name__]["fields"][field]["pydenticType"] = '"' + \
-                                target_model_name + '"'
+                                title(target_model_name) + '"'
 
                             # print(''"' + target_app + '_' + target_model_name.lower() + '.' + target_column_name + '"'', '"' + target_app + '_' + target_model_name.lower() + '.' + target_column_name + '"')
                             # print("field_def.field.target_field", field_def.field.target_field.model._meta.db_table)
@@ -794,7 +797,7 @@ def py_sqlachmy_models(models_to_render):
             if "choices" in field_value:
                 # print(field_value["choices"])
                 enums_to_render.append(
-                    {"name": field_key + "Enum",
+                    {"name": title(field_key) + "Enum",
                         "choices": field_value["choices"], "trsnaform_enum": field_value["trsnaform_enum"]}
                 )
 
@@ -803,6 +806,6 @@ def py_sqlachmy_models(models_to_render):
         {"schemas": schemas, "enums": enums_to_render,
             "relation_tables": relation_tables_to_render},
     )
-    rendered_files.append({"file_name": "sql_models.py",
+    rendered_files.append({"file_name": "models.py",
                           "file_content": rendered_models})
     return JsonResponse(rendered_files, safe=False)
