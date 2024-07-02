@@ -72,6 +72,14 @@ pub fn main(tera: Tera) {
                 .prompt()
                 .unwrap();
 
+            let mongo_studio_port: i32 = CustomType::new("MongoDB Studio Port:")
+                .with_formatter(&|i: i32| format!("{i}"))
+                .with_error_message("Please type a valid port number")
+                .with_default(4321)
+                .with_help_message("This is the port where the MongoDB Studio will be available")
+                .prompt()
+                .unwrap();
+
             let mongo_username = Text::new("MongoDB Username:")
                 .with_validator(required!("This field is required"))
                 .with_default("mongo")
@@ -88,6 +96,7 @@ pub fn main(tera: Tera) {
             context.insert("mongo_port", &mongo_port);
             context.insert("mongo_username", &mongo_username);
             context.insert("mongo_password", &mongo_password);
+            context.insert("mongo_studio_port", &mongo_studio_port);
         }
         Ok(false) => {}
         Err(_) => println!("You cancelled"),

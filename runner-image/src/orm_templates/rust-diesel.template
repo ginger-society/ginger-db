@@ -9,6 +9,8 @@ use chrono::offset::Utc;
 use chrono::DateTime;
 use diesel::Identifiable;
 use diesel::Associations;
+use rocket::serde::Deserialize;
+
 pub mod schema {
     use diesel::table;
 {% for key, value in schemas.items %}
@@ -34,12 +36,24 @@ use schema::{ {% for key, value in schemas.items %}{{key}},{% endfor %} };
 
 {% for key, value in schemas.items %}
 
-#[derive(Queryable, Debug, Selectable, Serialize, JsonSchema{% if value.fields.id %},Identifiable{% endif %}{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
+#[derive(Queryable, Debug, Selectable, Serialize, Deserialize, JsonSchema{% if value.fields.id %},Identifiable{% endif %}{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
 {% for decoration in value.rust_decorations %}{{decoration | safe}}{% endfor %}
 #[diesel(check_for_backend(diesel::pg::Pg))]
 #[diesel(table_name = {{value.table_name}})]
 pub struct {{key |title}} {
     {% for fieldname, fieldconfig in  value.fields.items %}{% if fieldconfig.relation_decorator != 'OneToMany' and fieldconfig.pyType != 'ManyToManyField' %}pub {% if fieldconfig.alias %}{{fieldconfig.original_column_name}}{% else %}{{fieldname}}{% endif %}:{% if fieldconfig.null%}Option<{% endif %}{{fieldconfig.rustType | safe}}{% if fieldconfig.null%}>{% endif %},
     {% endif %}{% endfor %}
+}
+{% endfor %}
+
+{% for key, value in schemas.items %}
+
+#[derive(Queryable, Debug, Selectable, Serialize, Deserialize, JsonSchema{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
+{% for decoration in value.rust_decorations %}{{decoration | safe}}{% endfor %}
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(table_name = {{value.table_name}})]
+pub struct {{key |title}}Insertable {
+    {% for fieldname, fieldconfig in  value.fields.items %}{% if fieldname != 'id' %}{% if fieldconfig.relation_decorator != 'OneToMany' and fieldconfig.pyType != 'ManyToManyField' %}pub {% if fieldconfig.alias %}{{fieldconfig.original_column_name}}{% else %}{{fieldname}}{% endif %}:{% if fieldconfig.null%}Option<{% endif %}{{fieldconfig.rustType | safe}}{% if fieldconfig.null%}>{% endif %},
+    {% endif %}{% endif %}{% endfor %}
 }
 {% endfor %}

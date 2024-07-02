@@ -38,6 +38,15 @@ services:
             - {{mongo_port}}:27017
         volumes:
             - ./mongodb:/data/db
+
+    {{name}}-mongo-gui:
+        image: ugleiton/mongo-gui
+        platform: linux/amd64
+        restart: always
+        ports:
+            - "{{mongo_studio_port}}:4321"
+        environment:
+            - MONGO_URL=mongodb://{{mongo_username}}:{{mongo_password}}@{{name}}-mongodb:27017
     {% endif %}
     {%  if create_redis %}
     {{name}}-redis:
