@@ -40,5 +40,7 @@ class {{key | title}}T(BaseModel):
     class Config:
         orm_mode = True
 
+{{key | title}}T.update_forward_refs()
+
 {% endfor %}
 
