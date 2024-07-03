@@ -103,6 +103,22 @@ LANG_TYPE_MAPPER = {
 }
 
 
+PYDENTIC_TYPE_MAPPER = {
+    "CharField": "str",
+    "BooleanField": "bool",
+    "BigAutoField": "int",
+    "DateField": "str",
+    "EmailField": "str",
+    "DateTimeField": "str",
+    "PositiveIntegerField": "int",
+    "ForeignKey": "int",
+    "ManyToManyField": "int",
+    "AutoField": "int",
+    "TextField": "str",
+    "PositiveSmallIntegerField": "int",
+}
+
+
 def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable=R0915,R0912,R0914
     """
     It gets DB schema defined in all apps
@@ -240,6 +256,9 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
 
                 if orm == "py-sqlalchemy":
                     schema_obj[model.__name__]["fields"][field]["pydenticType"] = LANG_TYPE_MAPPER[orm][field_def.field.__class__.__name__]
+
+                    schema_obj[model.__name__]["fields"][field]["pydentic_class_type"] = PYDENTIC_TYPE_MAPPER[field_def.field.__class__.__name__]
+
                     schema_obj[model.__name__]["fields"][field]["typeInputs"] = []
                     schema_obj[model.__name__]["fields"][field]["decoratorType"] = "mapped_column"
                 if orm == "rust-diesel":
@@ -382,6 +401,9 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             'back_populates="' + related_name + '"')
                         schema_obj[model.__name__]["fields"][field]["pydenticType"] = "list[" + \
                             '"' + title(target_model_name) + '"' + "]"
+
+                        schema_obj[model.__name__]["fields"][field]["pydentic_class_type"] = "list[" + \
+                            '"' + title(target_model_name) + 'T"' + "]"
 
                         if anchor_model:
                             # print("anchor fielddef", field_def.field, target_column_name, target_app)
@@ -532,6 +554,10 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                         if relation_decorator == "OneToMany":
                             schema_obj[model.__name__]["fields"][field]["pydenticType"] = 'list["' + \
                                 title(target_model_name) + '"]'
+
+                            schema_obj[model.__name__]["fields"][field]["pydentic_class_type"] = 'list["' + \
+                                title(target_model_name) + 'T"]'
+
                             schema_obj[model.__name__]["fields"][field]["no_type"] = True
                             schema_obj[model.__name__]["fields"][field]["decorators"].append(
                                 'back_populates="' + related_name + '"')
@@ -543,6 +569,9 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             schema_obj[model.__name__]["fields"][field]["pydenticType"] = '"' + \
                                 title(target_model_name) + '"'
 
+                            schema_obj[model.__name__]["fields"][field]["pydentic_class_type"] = '"' + \
+                                title(target_model_name) + 'T"'
+
                             # print(''"' + target_app + '_' + target_model_name.lower() + '.' + target_column_name + '"'', '"' + target_app + '_' + target_model_name.lower() + '.' + target_column_name + '"')
                             # print("field_def.field.target_field", field_def.field.target_field.model._meta.db_table)
                             # print(dir(field_def.field.target_field.related_model))
@@ -553,6 +582,9 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             field_copy = copy.deepcopy(
                                 schema_obj[model.__name__]["fields"][field])
                             field_copy["pydenticType"] = "int"
+
+                            field_copy["pydentic_class_type"] = "int"
+
                             schema_obj[model.__name__]["fields"][field]["decoratorType"] = "relationship"
 
                             schema_obj[model.__name__]["fields"][field]["decoratorType"] = "relationship"

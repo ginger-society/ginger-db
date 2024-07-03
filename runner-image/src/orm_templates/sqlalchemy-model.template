@@ -5,6 +5,7 @@ from sqlalchemy import String, Boolean, ForeignKey, Column, Table, Enum, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 import enum
+from pydantic import BaseModel
 
 {% for table in relation_tables %}
 {{table.name | title}} = Table(
@@ -30,3 +31,14 @@ class {{key | title}}(Model):
     {{fieldname}}: Mapped[{{fieldconfig.pydenticType | safe }}] = {{fieldconfig.decoratorType}}({% if not fieldconfig.no_type %}{{fieldconfig.type}}{% if fieldconfig.typeInputs %}({% for typeinput in fieldconfig.typeInputs %}{{typeinput | safe}}{% endfor %}){% endif %}{% endif %}{% if not fieldconfig.no_type and fieldconfig.decorators %},{% endif %}{% for decorator in fieldconfig.decorators %}{{decorator |safe}}{% if not forloop.last %},{% endif %}{% endfor %}){% endfor %}
 
 {% endfor %}
+
+
+{% for key, value in schemas.items %}
+class {{key | title}}T(BaseModel):
+    {% for fieldname, fieldconfig in  value.fields.items %}
+    {{fieldname}}: {{fieldconfig.pydentic_class_type | safe}}{% endfor %}
+    class Config:
+        orm_mode = True
+
+{% endfor %}
+
