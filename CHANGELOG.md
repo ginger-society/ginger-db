@@ -1,6 +1,20 @@
+## 0.4.0-nightly.0 - 2024-07-04
+feat:
+ - [424a6e785e](424a6e785e40c47d6153b86c7137588d7e99b1c1) (Ginger Society Admin) feat: added support for ginger-dj orm
+	
+ - [4d38f2429b](4d38f2429b6571d3f2cad8bfb16e4db6270d1cc2) (Ginger Society Admin) feat: added update_forward_refs for sqlalchemy models
+	
+ - [35dba93c4f](35dba93c4fabed82921f516cc5225c4c60ce19c7) (Ginger Society Admin) feat: capitalized classnames for tsorm and sqlalchemy
+	
+fix:
+ - [4447cf7fd6](4447cf7fd6817a1fbfff69eb2a728b10d850ebf2) (Ginger Society Admin) fix: models generation for sqlalchemy
+	
 ## 0.3.0-nightly.0 - 2024-07-02
 feat:
  - [f2a7b50b0a](f2a7b50b0a80c72e83856158783813c3d3db20eb) (Ginger Society Admin) feat: added Insertable structs for diesel orm models, added mongodb UI support
+	
+chore:
+ - [720bbd5371](720bbd5371d7ef313dcbf11cf6d29ce314ba57f4) (Ginger Society Admin) chore: version bump to 0.3.0-nightly.0
 	
 ## 0.2.0-nightly.0 - 2024-07-02
 chore:
