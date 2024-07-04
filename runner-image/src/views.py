@@ -47,7 +47,7 @@ ORM_TYPE_MAPPER = {
         "BigAutoField": "Integer",
         "DateField": "Date",
         "EmailField": "String",
-        "DateTimeField": "DateTime",
+        "DateTimeField": "DateTime(timezone=True)",
         "PositiveIntegerField": "Integer",
         "ForeignKey": "ForeignKey",
         "ManyToManyField": "Integer",
@@ -69,6 +69,20 @@ ORM_TYPE_MAPPER = {
         "TextField": "Varchar",
         "PositiveSmallIntegerField": "BigInt",
     },
+    "py-DjangoORM": {
+        "CharField": "CharField",
+        "BooleanField": "BooleanField",
+        "BigAutoField": "BigAutoField",
+        "DateField": "DateField",
+        "EmailField": "EmailField",
+        "DateTimeField": "DateTimeField",
+        "PositiveIntegerField": "PositiveIntegerField",
+        "ForeignKey": "ForeignKey",
+        "ManyToManyField": "ManyToManyField",
+        "AutoField": "AutoField",
+        "TextField": "TextField",
+        "PositiveSmallIntegerField": "PositiveSmallIntegerField",
+    }
 }
 
 LANG_TYPE_MAPPER = {
@@ -107,9 +121,9 @@ PYDENTIC_TYPE_MAPPER = {
     "CharField": "str",
     "BooleanField": "bool",
     "BigAutoField": "int",
-    "DateField": "str",
+    "DateField": "datetime.date",
     "EmailField": "str",
-    "DateTimeField": "str",
+    "DateTimeField": "datetime.datetime",
     "PositiveIntegerField": "int",
     "ForeignKey": "int",
     "ManyToManyField": "int",
@@ -239,10 +253,11 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                 #     print(field_def.field.auto_created)
 
                 # print(field_def.field.__class__.__name__)
-                # print('is null ' , field_def.field.null)
-                # print('default value ' , field_def.field.default)
-                # print('choices ' , field_def.field.choices)
+                # print('is null ', field_def.field.null)
+                # print('default value ', field_def.field.default)
+                # print('choices ', field_def.field.choices)
                 # print(dir(field_def.field), field_def.field.db_column)
+
                 # print("---------\n\n")
 
                 schema_obj[model.__name__]["fields"][field] = {
@@ -253,6 +268,10 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                     "no_type": False,
                     "relation_decorator": relation_decorator,
                 }
+
+                if hasattr(field_def.field, "auto_now"):
+                    schema_obj[model.__name__]["fields"][field]["auto_now"] = field_def.field.auto_now
+                    schema_obj[model.__name__]["fields"][field]["auto_now_add"] = field_def.field.auto_now_add
 
                 if orm == "py-sqlalchemy":
                     schema_obj[model.__name__]["fields"][field]["pydenticType"] = LANG_TYPE_MAPPER[orm][field_def.field.__class__.__name__]
@@ -627,6 +646,14 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             schema_obj[model.__name__]["rust_derive"].append(
                                 "Associations")
 
+                    elif orm == 'py-DjangoORM':
+                        if on_delete == CASCADE:  # pylint: disable=W0143
+                            schema_obj[model.__name__]["fields"][field]["on_delete"] = 'models.CASCADE'
+                        elif on_delete == SET_NULL:  # pylint: disable=W0143
+                            schema_obj[model.__name__]["fields"][field]["on_delete"] = 'models.SET_NULL'
+                        else:
+                            schema_obj[model.__name__]["fields"][field]["on_delete"] = 'models.DO_NOTHING'
+
                         # print(field_def.field.column)
                 # POST FIELD PROCESSING
                 if orm == "typeORM":
@@ -674,6 +701,11 @@ def get_diesel_model_schema(request):
     """JSON endpoint to get all models for disel ORM"""
     models_to_render = request.GET["models"].split(",")
     return JsonResponse(get_model_db_schemas(models_to_render, "rust-diesel"))
+
+
+def get_ginger_dj_model_schema(request):
+    models_to_render = request.GET["models"].split(",")
+    return JsonResponse(get_model_db_schemas(models_to_render, "py-DjangoORM"))
 
 
 class ModelsReponseSerializer(serializers.Serializer):
@@ -733,6 +765,8 @@ def render_models(request):
         return py_sqlachmy_models(models_to_render)
     if lang == "Rust" and framework == "Diesel":
         return rust_diesel_models(models_to_render)
+    if lang == "Python" and framework == "DjangoORM":
+        return ginger_dj_models(models_to_render)
 
     return JsonResponse({"message": lang + " is not supported as of now"}, status=400)
 
@@ -808,6 +842,36 @@ def rust_diesel_models(models_to_render):
         {"file_name": "schema.rs", "file_content": rendered_models})
     # rendered_files.append(
     #     {"file_name": "mod.rs", "file_content": "pub mod schema;"})
+
+    return JsonResponse(rendered_files, safe=False)
+
+
+def ginger_dj_models(models_to_render):
+    schemas = get_model_db_schemas(models_to_render, "py-DjangoORM")
+    # print(schemas)
+    rendered_files = []
+
+    enums_to_render = []
+    relation_tables_to_render = []
+    for _key, value in schemas.items():
+        for relation_table in value["relation_tables"]:
+            relation_tables_to_render.append(relation_table)
+        for field_key, field_value in value["fields"].items():
+            if "choices" in field_value:
+                # print(field_value["choices"])
+                enums_to_render.append(
+                    {"name": field_key + "Enum",
+                        "choices": field_value["choices"], "trsnaform_enum": field_value["trsnaform_enum"]}
+                )
+
+    rendered_models = render_to_string(
+        "ginger-dj.template",
+        {"schemas": schemas, "enums": enums_to_render,
+            "relation_tables": relation_tables_to_render},
+    )
+
+    rendered_files.append(
+        {"file_name": "models.py", "file_content": rendered_models})
 
     return JsonResponse(rendered_files, safe=False)
 

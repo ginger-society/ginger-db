@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 import enum
 from pydantic import BaseModel
+import datetime
 
 {% for table in relation_tables %}
 {{table.name | title}} = Table(
@@ -36,11 +37,30 @@ class {{key | title}}(Model):
 {% for key, value in schemas.items %}
 class {{key | title}}T(BaseModel):
     {% for fieldname, fieldconfig in  value.fields.items %}
-    {{fieldname}}: {{fieldconfig.pydentic_class_type | safe}}{% endfor %}
+    {{fieldname}}: {% if fieldconfig.null %}Optional[{{fieldconfig.pydentic_class_type | safe}}]{%  else %}{{fieldconfig.pydentic_class_type | safe}}{% endif %}{% endfor %}
+    class Config:
+        orm_mode = True
+{% endfor %}
+
+
+
+{% for key, value in schemas.items %}
+class {{key | title}}InsertableT(BaseModel):
+    {% for fieldname, fieldconfig in  value.fields.items %}
+    {% if fieldname != 'id' %}{{fieldname}}: {% if fieldconfig.null %}Optional[{{fieldconfig.pydentic_class_type | safe}}]{%  else %}{{fieldconfig.pydentic_class_type | safe}}{% endif %}{% endif %}{% endfor %}
     class Config:
         orm_mode = True
 
-{{key | title}}T.update_forward_refs()
+class {{key | title}}UpdatableT(BaseModel):
+    {% for fieldname, fieldconfig in  value.fields.items %}
+    {% if fieldname != 'id' %}{{fieldname}}: Optional[{{fieldconfig.pydentic_class_type | safe}}]{% endif %}{% endfor %}
+    class Config:
+        orm_mode = True
+{% endfor %}
 
+{% for key, value in schemas.items %}
+{{key | title}}T.update_forward_refs()
+{{key | title}}UpdatableT.update_forward_refs()
+{{key | title}}InsertableT.update_forward_refs()
 {% endfor %}
 

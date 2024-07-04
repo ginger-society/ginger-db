@@ -41,6 +41,7 @@ urlpatterns = [
     path("models/", get_model_schema),
     path("py-sqlalchemy-models/", get_sqlalchemy_model_schema),
     path("rust-diesel-models/", get_diesel_model_schema),
+    path("py-ginger-dj-models/", get_ginger_dj_model_schema),
     path("render_models", render_models),
     path("get-all-models", get_all_defined_models),
     path("", include("ginger.prometheus.urls")),

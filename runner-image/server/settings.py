@@ -65,10 +65,10 @@ WSGI_APPLICATION = "server.wsgi.application"
 DATABASES = {  # pragma: no cover
     "default": {
         "ENGINE": "ginger.db.backends.postgresql_psycopg2",
-        "NAME": os.getenv('DB_NAME', 'test'),
+        "NAME": os.getenv('DB_NAME', 'Test-db'),
         "USER": os.getenv('DB_USERNAME', 'postgres'),
         "PASSWORD": os.getenv('DB_PASSWORD', 'postgres'),
-        "HOST": os.getenv('DB_HOST', 'db'),
+        "HOST": os.getenv('DB_HOST', '127.0.0.1'),
         "PORT": os.getenv('DB_PORT', '5432'),
     }
 }
