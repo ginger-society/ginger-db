@@ -17,5 +17,6 @@ class {{key | title}}(models.Model):
 
     class Meta:
         managed = False
+        db_table = "{{value.table_name}}"
 
 {% endfor %}
