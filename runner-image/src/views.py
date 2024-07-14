@@ -444,7 +444,7 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                                 "secondary=" + target_model_name + "_" + model.__name__)
 
                     elif orm == "rust-diesel" and anchor_model:
-                        schema_obj[model.__name__ + "_" + target_model_name] = {
+                        schema_obj[model.__name__ + "_" + field] = {
                             "__doc__": "\n    ",
                             "fields": {
                                 "id": {
@@ -495,6 +495,22 @@ def get_model_db_schemas(models_to_render, orm):  # noqa: C901 # pylint: disable
                             ],
                             "rust_related_models": [],
                         }
+
+                        relationshipStr = (
+                            "diesel::joinable!("
+                            + model.objects.model._meta.db_table + "_" + field
+                            + " -> "
+                            + target_model_name.lower()
+                            + " ("
+                            + target_model_name.lower() + "_id"
+                            + "));"
+                        )
+                        if (
+                            relationshipStr not in schema_obj[model.__name__]["relation_tables"]
+                            and target_model_name not in schema_obj[model.__name__]["rust_related_models"]
+                        ):
+                            schema_obj[model.__name__]["relation_tables"].append(
+                                relationshipStr)
 
                 elif isinstance(field_def.field, ForeignKey):
                     if hasattr(field_def, "rel"):
@@ -757,6 +773,7 @@ def render_models(request):
     """Common api handler for rendering models"""
     lang = request.GET["language"]
     framework = request.GET["framework"]
+    print(lang, framework)
     models_to_render = request.GET["models"].split(",")
     # print(lang, framework, models_to_render)
     if lang == "TS" and framework == "TypeORM":

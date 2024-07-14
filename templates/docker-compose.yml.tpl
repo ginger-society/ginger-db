@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-    {%  if create_mongodb %}
+    {%  if create_rdms %}
     {{name}}-runtime:
         image: gingersociety/db-compose-runtime:latest
         ports:
@@ -15,6 +15,7 @@ services:
         volumes:
             - ./models.py:/app/src/models.py
             - ./admin.py:/app/src/admin.py
+            - ./migrations:/app/src/migrations
         depends_on:
             - {{name}}-db
     {{name}}-db:

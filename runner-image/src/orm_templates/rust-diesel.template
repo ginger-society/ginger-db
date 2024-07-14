@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
-
+use diesel::Insertable;
 use chrono::NaiveDate;
 use diesel::{deserialize::Queryable, table, Selectable};
 use schemars::JsonSchema;
@@ -32,7 +32,7 @@ pub mod schema {
     );
 }
 
-use schema::{ {% for key, value in schemas.items %}{{key}},{% endfor %} };
+use schema::{ {% for key, value in schemas.items %}{{value.table_name}},{% endfor %} };
 
 {% for key, value in schemas.items %}
 
@@ -48,7 +48,7 @@ pub struct {{key |title}} {
 
 {% for key, value in schemas.items %}
 
-#[derive(Queryable, Debug, Selectable, Serialize, Deserialize, JsonSchema{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
+#[derive(Queryable, Debug, Selectable, Serialize, Deserialize, Insertable, JsonSchema{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
 {% for decoration in value.rust_decorations %}{{decoration | safe}}{% endfor %}
 #[diesel(check_for_backend(diesel::pg::Pg))]
 #[diesel(table_name = {{value.table_name}})]
