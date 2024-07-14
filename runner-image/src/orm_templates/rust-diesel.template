@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 use diesel::Insertable;
 use chrono::NaiveDate;
-use diesel::{deserialize::Queryable, table, Selectable};
+use diesel::{deserialize::Queryable, Selectable};
 use schemars::JsonSchema;
 use serde::Serialize;
 use chrono::offset::Utc;
