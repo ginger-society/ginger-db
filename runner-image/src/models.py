@@ -1,88 +1,63 @@
 from ginger.db import models
 
 
-subject = (
+class user(models.Model):
+    """User's table"""
 
-    ("english", "English"),
+    first_name = models.CharField(max_length=40,     blank=True, null=True,)
 
-    ("hindi", "Hindi"),
+    last_name = models.CharField(max_length=40,     blank=True, null=True,)
 
-    ("maths", "Maths"),
+    middle_name = models.CharField(max_length=40,     blank=True, null=True,)
 
-    ("science", "Science"),
+    email_id = models.CharField(max_length=100,)
 
-    ("social_studies", "Social Studies"),
-
-)
-
-
-course_type = (
-
-    ("compulsary", "Compulsary"),
-
-    ("elective", "Elective"),
-
-)
-
-
-class student(models.Model):
-    """Lorem ipsum dolem text"""
-
-    name = models.CharField(max_length=150,)
-
-    roll_number = models.CharField(max_length=40,)
-
-    on_scholarship = models.BooleanField(default=True,)
-
-    father_name = models.CharField(max_length=100,     null=True,)
-
-    address = models.TextField(max_length=500,)
-
-    data_of_birth = models.DateField(null=True,)
+    mobile_number = models.CharField(max_length=15,     blank=True, null=True,)
 
     created_at = models.DateTimeField(auto_now_add=True,)
 
-    updated_at = models.DateField(auto_now=True,)
+    updated_at = models.DateTimeField(auto_now=True,)
 
-    has_cab_service = models.BooleanField(default=False,      null=True,)
-
-    class Meta:
-        db_table = "student"
-
-
-class enrollment(models.Model):
-    """Once again the lorem ipsum text"""
-
-    student = models.ForeignKey(
-        'student', related_name='courses', on_delete=models.DO_NOTHING,)
-
-    course = models.ForeignKey(
-        'course', on_delete=models.SET_NULL,      null=True,)
+    password_hash = models.CharField(
+        max_length=400,     blank=True, null=True,)
 
     class Meta:
-        db_table = "enrollment"
+        db_table = "user"
 
 
-class course(models.Model):
-    """Another lorem ipsum dolem text"""
+class token(models.Model):
+    """tokens like password hashes , TOTP , session tokens etc"""
 
-    name = models.CharField(max_length=100,)
+    session_hash = models.CharField(max_length=400,     blank=True, null=True,)
 
-    course_type = models.CharField(
-        choices=course_type, max_length=50,   default='compulsary',)
+    user = models.ForeignKey(
+        'user', related_name='tokens', on_delete=models.CASCADE,)
 
-    duration = models.PositiveIntegerField(null=True,)
-
-    class Meta:
-        db_table = "course"
-
-
-class exam(models.Model):
-    """to store the docs"""
-
-    date = models.DateField(auto_now_add=True,)
-
-    subject = models.CharField(choices=subject, max_length=50,)
+    app = models.ForeignKey('app', on_delete=models.CASCADE,)
 
     class Meta:
-        db_table = "exam"
+        db_table = "token"
+
+
+class app(models.Model):
+    """Application"""
+
+    client_id = models.CharField(max_length=150,)
+
+    name = models.CharField(max_length=50,)
+
+    class Meta:
+        db_table = "app"
+
+
+class group(models.Model):
+    """Groups"""
+
+    identifier = models.CharField(max_length=50,)
+
+    users = models.ManyToManyField('user', related_name='groups',)
+
+    owners = models.ManyToManyField('user', related_name='managed_groups',)
+
+    class Meta:
+        db_table = "group"

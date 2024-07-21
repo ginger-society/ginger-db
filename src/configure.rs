@@ -37,6 +37,8 @@ pub fn main() {
                         .prompt()
                     {
                         Ok(schema_url) => {
+                            let schema_id = Text::new("Enter schema_id").prompt().unwrap();
+
                             match Text::new("Where is your models going to be generated").prompt() {
                                 Ok(root) => {
                                     let db_config_path = Path::new("database.toml");
@@ -47,6 +49,8 @@ pub fn main() {
                                             lang: lang_selected,
                                             orm: orm_selected,
                                             root: root,
+                                            schema_id: schema_id,
+                                            branch: "main".to_string(),
                                         },
                                         tables: DBTables { names: vec![] },
                                     };

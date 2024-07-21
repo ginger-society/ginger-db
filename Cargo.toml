@@ -6,9 +6,9 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5.7", features = ["derive"] }
+clap = {version = "4.5.7", features = ["derive"]}
 inquire = {version = "0.6.2", features = ["date"]}
-schemaClient = {version = "1.0.0", path = "schema_client"}
+schema-gen-service = {path = "./schema-gen-service_client"}
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 tera = "1.20.0"

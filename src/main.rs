@@ -1,6 +1,6 @@
 use clap::{Arg, Parser, Subcommand};
 
-use schemaClient::apis::configuration::Configuration;
+use schema_gen_service::apis::configuration::Configuration;
 use serde_json::Result;
 use std::path::Path;
 use templates::get_renderer;

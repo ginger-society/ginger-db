@@ -13,13 +13,13 @@ def create_model_admin(model):
     return ModelAdmin
 
 
-admin.site.register(student, create_model_admin(student))
+admin.site.register(user, create_model_admin(user))
 
 
-admin.site.register(enrollment, create_model_admin(enrollment))
+admin.site.register(token, create_model_admin(token))
 
 
-admin.site.register(course, create_model_admin(course))
+admin.site.register(app, create_model_admin(app))
 
 
-admin.site.register(exam, create_model_admin(exam))
+admin.site.register(group, create_model_admin(group))

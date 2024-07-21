@@ -10,6 +10,8 @@ pub struct DBSchema {
     pub lang: LANG,
     pub orm: ORM,
     pub root: String,
+    pub schema_id: String,
+    pub branch: String,
 }
 
 #[derive(Deserialize, Debug, Serialize)]

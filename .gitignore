@@ -15,6 +15,7 @@ db.sqlite3
 prometheus_data
 pgsql
 .mypy_cache
-schema_client
 models
+.ginger.tmp
+schema-gen-service_client
 
