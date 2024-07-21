@@ -49,8 +49,8 @@ pub fn main() {
                                             lang: lang_selected,
                                             orm: orm_selected,
                                             root: root,
-                                            schema_id: schema_id,
-                                            branch: "main".to_string(),
+                                            schema_id: Some(schema_id),
+                                            branch: None,
                                         },
                                         tables: DBTables { names: vec![] },
                                     };

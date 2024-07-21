@@ -1,12 +1,16 @@
-dir = "."
 lang = "Rust"
-override_name = "schema-gen-service"
+dir = "."
 spec_url = "/swagger/?format=openapi"
+override_name = "schema-gen-service"
 
 [services.schema-gen-service]
 dev = "http://localhost:8000"
 
+[services.MetadataService]
+stage = "http://localhost:8081"
+dev = "http://localhost:8081"
+
 [urls]
-dev = "http://localhost:8000"
 prod = "http://localhost:8000"
+dev = "http://localhost:8000"
 stage = "http://localhost:8000"

@@ -1,18 +1,62 @@
-use std::io::Write;
+use std::fs::File;
+use std::io::{BufReader, Write};
+use std::path::Path;
 use std::process::Command;
-use std::{fs::File, io::BufReader};
 
 use tera::{Context, Tera};
+use MetadataService::apis::default_api::{
+    metadata_get_dbschema_by_id, MetadataGetDbschemaByIdParams,
+};
+use MetadataService::get_configuration;
 
 use crate::types::{Schema, SchemaType};
+use crate::utils::read_compose_config_file;
+use serde::Deserialize;
 
-pub fn main(tera: Tera) {
-    // Open the file in read-only mode with buffer.
-    let file = File::open("db.design.json").unwrap();
-    let reader = BufReader::new(file);
+#[tokio::main]
+pub async fn up(tera: Tera) {
+    let schemas = match File::open("db.design.json") {
+        Ok(file) => {
+            let reader = BufReader::new(file);
+            // Read the JSON contents of the file as an instance of `Schema`.
+            match serde_json::from_reader(reader) {
+                Ok(schemas) => schemas,
+                Err(err) => {
+                    eprintln!("Error reading JSON from file: {:?}", err);
+                    return;
+                }
+            }
+        }
+        Err(_) => {
+            let open_api_config = get_configuration();
 
-    // Read the JSON contents of the file as an instance of `Schema`.
-    let mut schemas: Vec<Schema> = serde_json::from_reader(reader).unwrap();
+            let db_compose_config = read_compose_config_file("db-compose.toml").unwrap();
+
+            match metadata_get_dbschema_by_id(
+                &open_api_config,
+                MetadataGetDbschemaByIdParams {
+                    schema_id: db_compose_config.schema_id.to_string(),
+                    branch: Some(db_compose_config.branch.to_string()),
+                },
+            )
+            .await
+            {
+                Ok(response) => match serde_json::from_str(&response.data.unwrap().unwrap()) {
+                    Ok(schemas) => schemas,
+                    Err(err) => {
+                        eprintln!("Error parsing schema from response: {:?}", err);
+                        return;
+                    }
+                },
+                Err(_) => {
+                    eprintln!("Error getting the schema, please check your network");
+                    return;
+                }
+            }
+        }
+    };
+
+    let mut schemas: Vec<Schema> = schemas;
 
     schemas.sort_by(|a, _b| {
         if a.schema_type == SchemaType::Enum {
@@ -27,27 +71,40 @@ pub fn main(tera: Tera) {
 
     match tera.render("models.py.tpl", &context) {
         Ok(rendered_template) => {
-            // println!("{:?}", rendered_template);
-
-            let mut output_file = File::create("models.py").unwrap();
-            output_file.write_all(rendered_template.as_bytes()).unwrap();
+            let mut output_file = match File::create("models.py") {
+                Ok(file) => file,
+                Err(err) => {
+                    eprintln!("Error creating models.py: {:?}", err);
+                    return;
+                }
+            };
+            if let Err(err) = output_file.write_all(rendered_template.as_bytes()) {
+                eprintln!("Error writing to models.py: {:?}", err);
+            }
         }
         Err(e) => {
-            println!("{:?}", e)
+            eprintln!("Error rendering models.py template: {:?}", e);
         }
     };
 
     match tera.render("admin.py.tpl", &context) {
         Ok(rendered_template) => {
-            // println!("{:?}", rendered_template);
-
-            let mut output_file = File::create("admin.py").unwrap();
-            output_file.write_all(rendered_template.as_bytes()).unwrap();
+            let mut output_file = match File::create("admin.py") {
+                Ok(file) => file,
+                Err(err) => {
+                    eprintln!("Error creating admin.py: {:?}", err);
+                    return;
+                }
+            };
+            if let Err(err) = output_file.write_all(rendered_template.as_bytes()) {
+                eprintln!("Error writing to admin.py: {:?}", err);
+            }
         }
         Err(e) => {
-            println!("{:?}", e)
+            eprintln!("Error rendering admin.py template: {:?}", e);
         }
     };
+
     let status = Command::new("docker-compose")
         .arg("up")
         .status()

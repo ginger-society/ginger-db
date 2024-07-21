@@ -18,4 +18,4 @@ pgsql
 models
 .ginger.tmp
 schema-gen-service_client
-
+MetadataService_client

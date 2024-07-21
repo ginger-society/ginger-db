@@ -6,7 +6,19 @@ use std::{
 use inquire::{required, Confirm, CustomType, Text};
 use tera::{Context, Tera};
 
-pub fn main(tera: Tera) {
+use crate::utils::{write_compose_config_file, ComposeConfig};
+
+pub fn main(tera: Tera, repo: String) {
+    let schema_id = repo.split('/').nth(0).unwrap_or("");
+    let branch = repo.split('/').nth(1).unwrap_or("");
+
+    let db_compose_config = ComposeConfig {
+        schema_id: schema_id.to_string(),
+        branch: branch.to_string(),
+    };
+
+    let _ = write_compose_config_file(&db_compose_config, "db-compose.toml");
+
     let mut context = Context::new();
     let create_rdms = Confirm::new("Do you want to add PostgresSQL ?")
         .with_default(false)

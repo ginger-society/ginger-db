@@ -17,7 +17,11 @@ mod utils;
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Initialize a database project
-    Init,
+    Init {
+        /// repo is of the format schema_id/branch
+        #[arg(short, long)]
+        repo: String,
+    },
     /// Bring up the database up just like docker-compose
     Up,
     /// Configures a new db connection in a project
@@ -47,8 +51,8 @@ fn main() -> Result<()> {
     let db_config_path = Path::new("database.toml");
 
     match args.command {
-        Commands::Init => init::main(tera),
-        Commands::Up => up::main(tera),
+        Commands::Init { repo } => init::main(tera, repo),
+        Commands::Up => up::up(tera),
         Commands::Configure => configure::main(),
         Commands::Render { skip } => {
             // Read the configuration using the read_db_config function

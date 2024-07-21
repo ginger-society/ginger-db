@@ -1,10 +1,8 @@
 [schema]
-branch = "main"
 lang = "TS"
 orm = "TypeORM"
 root = "models"
-schema_id = "das"
 url = "http://localhost:8000"
 
 [tables]
-names = ["student", "enrollment"]
+names = []
