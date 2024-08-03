@@ -9,8 +9,6 @@ htmlcov/
 coverage.xml
 *.cover
 coverage.json
-uml.dot
-uml.png
 db.sqlite3
 prometheus_data
 pgsql
@@ -19,3 +17,5 @@ models
 .ginger.tmp
 schema-gen-service_client
 MetadataService_client
+bin
+.env

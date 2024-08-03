@@ -31,6 +31,6 @@ docker push gingersociety/db-compose-migrator:latest # push
 In the pipeline of the db repo that it creates , it should execute the following commands 
 
 ```sh
-docker run -e DB_NAME=metadata-db -e DB_USERNAME=doadmin -e DB_PASSWORD=PASS -e DB_HOST=HOST -e DB_PORT=PORT -v $(pwd)/models.py:/app/src/models.py -v $(pwd)/admin.py:/app/src/admin.py -v $(pwd)/migrations:/app/src/migrations gingersociety/db-compose-migrator:latest
+docker run -e DB_NAME=NAME -e DB_USERNAME=USERNAME -e DB_PASSWORD=PASS -e DB_HOST=HOST -e DB_PORT=PORT -v $(pwd)/models.py:/app/src/models.py -v $(pwd)/admin.py:/app/src/admin.py -v $(pwd)/migrations:/app/src/migrations gingersociety/db-compose-migrator:latest
 
 ```
