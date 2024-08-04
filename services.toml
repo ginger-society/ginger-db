@@ -1,17 +1,13 @@
 dir = "."
 lang = "Rust"
-override_name = "schema-gen-service"
-service_type = "RPCEndpoint"
-spec_url = "/swagger/?format=openapi"
+service_type = "Executable"
+
+[services.MetadataService]
+stage = "https://api-staging.gingersociety.org/metadata"
+stage_k8 = "http://metadata-service-api-service/metadata"
 
 [services.schema-gen-service]
 dev = "http://localhost:8000"
-
-[services.MetadataService]
-dev = "http://localhost:8081"
-stage = "http://localhost:8081"
-
-[urls]
-dev = "http://localhost:8000"
-prod = "http://localhost:8000"
 stage = "http://localhost:8000"
+
+[portals_refs]

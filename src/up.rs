@@ -48,7 +48,8 @@ pub async fn up(tera: Tera) {
                         return;
                     }
                 },
-                Err(_) => {
+                Err(e) => {
+                    println!("{:?}", e);
                     eprintln!("Error getting the schema, please check your network");
                     return;
                 }
