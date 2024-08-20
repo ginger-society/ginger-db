@@ -1,4 +1,15 @@
 ## 0.6.0-nightly.0 - 2024-08-20
+xhore:
+ - [31b613a7e3](31b613a7e3ce3d7d2fcf8f4702b250b805c576c3) (Ginger Society Admin) xhore: removed unused imports in diesel models template
+	
+chore:
+ - [e9758d1458](e9758d145854907c6f21eff5697b9d88da052dec) (Ginger Society Admin) chore: version bump to 0.6.0-nightly.0
+	
+ - [94eb61ed9c](94eb61ed9cdbda6b8a1d91c5527c01729031838e) (Ginger Society Admin) chore: updated gitignore and readme
+	
+fix:
+ - [e676b47671](e676b476717b312d243499aa007fb5731838b7c8) (Ginger Society Admin) fix: m2m fields for rust - diesel , added joinable statements
+	
 feat:
  - [37287cfb69](37287cfb698f150a1ed7ded0a8cbe58424b8605e) (Ginger Society Admin) feat: created seperate services.toml for schema service generator
 	
@@ -8,28 +19,19 @@ feat:
 	
  - [aee7ce0739](aee7ce0739a78815fe9612428c7c9115259db861) (Ginger Society Admin) feat: updated service schema generation client
 	
-chore:
- - [94eb61ed9c](94eb61ed9cdbda6b8a1d91c5527c01729031838e) (Ginger Society Admin) chore: updated gitignore and readme
-	
-fix:
- - [e676b47671](e676b476717b312d243499aa007fb5731838b7c8) (Ginger Society Admin) fix: m2m fields for rust - diesel , added joinable statements
-	
-xhore:
- - [31b613a7e3](31b613a7e3ce3d7d2fcf8f4702b250b805c576c3) (Ginger Society Admin) xhore: removed unused imports in diesel models template
-	
 ## 0.5.0-nightly.0 - 2024-07-04
-feat:
- - [b7b5159a31](b7b5159a31eb0b620220b74e6d98af788cc1f696) (Ginger Society Admin) feat: added admin.py file and updated ginger-dj models rendering template
-	
 chore:
  - [cc5a394c9a](cc5a394c9ab8b0d01e1c14281f4b67646f761af5) (Ginger Society Admin) chore: version bump to 0.5.0-nightly.0
 	
-## 0.4.0-nightly.0 - 2024-07-04
-chore:
- - [2acc37c8cc](2acc37c8cc49b708aeaadf882d51a1ea16e926f7) (Ginger Society Admin) chore: version bump to 0.4.0-nightly.0
+feat:
+ - [b7b5159a31](b7b5159a31eb0b620220b74e6d98af788cc1f696) (Ginger Society Admin) feat: added admin.py file and updated ginger-dj models rendering template
 	
+## 0.4.0-nightly.0 - 2024-07-04
 fix:
  - [4447cf7fd6](4447cf7fd6817a1fbfff69eb2a728b10d850ebf2) (Ginger Society Admin) fix: models generation for sqlalchemy
+	
+chore:
+ - [2acc37c8cc](2acc37c8cc49b708aeaadf882d51a1ea16e926f7) (Ginger Society Admin) chore: version bump to 0.4.0-nightly.0
 	
 feat:
  - [424a6e785e](424a6e785e40c47d6153b86c7137588d7e99b1c1) (Ginger Society Admin) feat: added support for ginger-dj orm
@@ -39,11 +41,11 @@ feat:
  - [35dba93c4f](35dba93c4fabed82921f516cc5225c4c60ce19c7) (Ginger Society Admin) feat: capitalized classnames for tsorm and sqlalchemy
 	
 ## 0.3.0-nightly.0 - 2024-07-02
-feat:
- - [f2a7b50b0a](f2a7b50b0a80c72e83856158783813c3d3db20eb) (Ginger Society Admin) feat: added Insertable structs for diesel orm models, added mongodb UI support
-	
 chore:
  - [720bbd5371](720bbd5371d7ef313dcbf11cf6d29ce314ba57f4) (Ginger Society Admin) chore: version bump to 0.3.0-nightly.0
+	
+feat:
+ - [f2a7b50b0a](f2a7b50b0a80c72e83856158783813c3d3db20eb) (Ginger Society Admin) feat: added Insertable structs for diesel orm models, added mongodb UI support
 	
 ## 0.2.0-nightly.0 - 2024-07-02
 chore:

@@ -1,14 +1,14 @@
 [version]
 channel = "Nightly"
 major = 0
-minor = 6
+minor = 7
 patch = 0
 revision = 0
 
 [[references]]
 file_name = "runner-image/server/settings.py"
 output_type = "String"
-variable = "version"
+variable = "VERSION"
 
 [settings]
 git_url_prefix = ""
