@@ -1,9 +1,0 @@
-lang = "Python"
-service_type = "RPCEndpoint"
-spec_url = "/swagger/?format=openapi"
-
-[urls]
-dev = "http://localhost:9001"
-stage = "http://localhost:9001"
-
-[services]

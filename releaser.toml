@@ -5,15 +5,5 @@ minor = 8
 patch = 0
 revision = 0
 
-[[references]]
-file_name = "runner-image/server/settings.py"
-output_type = "String"
-variable = "VERSION"
-
-[[references]]
-file_name = "runner-image/pyproject.toml"
-output_type = "String"
-variable = "version"
-
 [settings]
-git_url_prefix = ""
+git_url_prefix = "https://github.com/ginger-society/ginger-DB-compose"
