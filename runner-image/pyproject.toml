@@ -2,4 +2,4 @@
 description = "Provide schema generation service locally"
 name = "schema-gen-service"
 organization = "ginger-society"
-version = "v1.0.0"
+version = "0.8.0-nightly.0"

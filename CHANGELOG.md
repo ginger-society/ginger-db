@@ -1,14 +1,28 @@
+## 0.8.0-nightly.0 - 2024-08-20
+fix:
+ - [65d07c6796](65d07c6796f3c54b147b8ac1a76894c1447db346) (Ginger Society Admin) fix: pipeline
+	
+ - [c781b65940](c781b6594065921b35516216ba5541683a555b02) (Ginger Society Admin) fix: pipeline
+	
+feat:
+ - [c97b9e9cb3](c97b9e9cb3a88daac2caf1837aaea5f3a937a0c9) (Ginger Society Admin) feat: added docker compose in runner with sample DB for better testing in dev
+	
+ - [e03f8ec4d8](e03f8ec4d8c47ec799f823624ff3e3fb3b637e7e) (Ginger Society Admin) feat: update migrate script and added pipeline file
+	
+ - [70511067cb](70511067cb521737dd9855ff67fc5d641a7bde42) (Ginger Society Admin) feat: added metadata.toml files
+	
+## 0.7.0-nightly.0 - 2024-08-20
+chore:
+ - [ac76c09f25](ac76c09f2557cc5702108ac50ef36eab2a03a278) (Ginger Society Admin) chore: version bump to 0.7.0-nightly.0
+	
 ## 0.6.0-nightly.0 - 2024-08-20
-xhore:
- - [31b613a7e3](31b613a7e3ce3d7d2fcf8f4702b250b805c576c3) (Ginger Society Admin) xhore: removed unused imports in diesel models template
+fix:
+ - [e676b47671](e676b476717b312d243499aa007fb5731838b7c8) (Ginger Society Admin) fix: m2m fields for rust - diesel , added joinable statements
 	
 chore:
  - [e9758d1458](e9758d145854907c6f21eff5697b9d88da052dec) (Ginger Society Admin) chore: version bump to 0.6.0-nightly.0
 	
  - [94eb61ed9c](94eb61ed9cdbda6b8a1d91c5527c01729031838e) (Ginger Society Admin) chore: updated gitignore and readme
-	
-fix:
- - [e676b47671](e676b476717b312d243499aa007fb5731838b7c8) (Ginger Society Admin) fix: m2m fields for rust - diesel , added joinable statements
 	
 feat:
  - [37287cfb69](37287cfb698f150a1ed7ded0a8cbe58424b8605e) (Ginger Society Admin) feat: created seperate services.toml for schema service generator
@@ -18,6 +32,9 @@ feat:
  - [7bce41cad1](7bce41cad17446e74b2f3d59c00ed9b5412b89f6) (Ginger Society Admin) feat: added fetching schema from server
 	
  - [aee7ce0739](aee7ce0739a78815fe9612428c7c9115259db861) (Ginger Society Admin) feat: updated service schema generation client
+	
+xhore:
+ - [31b613a7e3](31b613a7e3ce3d7d2fcf8f4702b250b805c576c3) (Ginger Society Admin) xhore: removed unused imports in diesel models template
 	
 ## 0.5.0-nightly.0 - 2024-07-04
 chore:
@@ -54,9 +71,6 @@ chore:
  - [fe47ad6e55](fe47ad6e552d0d06eff4e9a4b99907348f821be6) (Ginger Society Admin) chore: commited changelog.md
 	
 ## 0.1.0-nightly.0 - 2024-07-02
-fix:
- - [54eb1fbe66](54eb1fbe66b695ee3be5648e62a51995cee07b0b) (Ginger Society Admin) fix: docker compose
-	
 feat:
  - [a7f246ae36](a7f246ae36bdf5048f76f8053b3adbcf91feb16c) (Ginger Society Admin) feat: added releaser support
 	
@@ -141,6 +155,9 @@ feat:
  - [839111d507](839111d507b9053dc35f724d5fa4806fbf0e79c2) (Ginger Society Admin) feat: added tera context and rendering
 	
  - [aa1d663287](aa1d663287346cd278fbacb06bddafd8c9ed38ba) (Ginger Society Admin) feat: added Schema structs
+	
+fix:
+ - [54eb1fbe66](54eb1fbe66b695ee3be5648e62a51995cee07b0b) (Ginger Society Admin) fix: docker compose
 	
 chore:
  - [394747d041](394747d0416b12a653043330993edb82b54c34da) (Ginger Society Admin) chore: version bump to 0.1.0-nightly.0
