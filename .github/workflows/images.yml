@@ -1,4 +1,4 @@
-name: Build, Push Docker Image, and Restart Deployment
+name: Build, Push Docker Image for runner and migrator
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
     - name: Build Docker image for runtime
       run: |
         cd runner-image
-        docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/db-compose-runtime:latest . --build-arg GINGER_TOKEN=${{ secrets.GINGER_TOKEN }}
+        docker buildx build -t ${{ secrets.DOCKER_HUB_USERNAME }}/db-compose-runtime:latest . --build-arg GINGER_TOKEN=${{ secrets.GINGER_TOKEN }}
 
     - name: Push Docker image for runtime
       run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/db-compose-runtime:latest
@@ -27,7 +27,7 @@ jobs:
     - name: Build Docker image for migrator
       run: |
         cd runner-image
-        docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/db-compose-migrator:latest -f Dockerfile.migrator --build-arg GINGER_TOKEN=${{ secrets.GINGER_TOKEN }}
+        docker buildx build -t ${{ secrets.DOCKER_HUB_USERNAME }}/db-compose-migrator:latest -f Dockerfile.migrator . --build-arg GINGER_TOKEN=${{ secrets.GINGER_TOKEN }}
 
     - name: Push Docker image for migrator
       run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/db-compose-migrator:latest
