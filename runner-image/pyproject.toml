@@ -1,3 +1,5 @@
 [project]
+description = "Provide schema generation service locally"
 name = "schema-gen-service"
-version = "1.1.1"
+organization = "ginger-society"
+version = "v1.0.0"

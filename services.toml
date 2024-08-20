@@ -2,12 +2,13 @@ dir = "."
 lang = "Rust"
 service_type = "Executable"
 
-[services.MetadataService]
-stage = "https://api-staging.gingersociety.org/metadata"
-stage_k8 = "http://metadata-service-api-service/metadata"
-
-[services.schema-gen-service]
+[services."@ginger-society/schema-gen-service"]
 dev = "http://localhost:8000"
 stage = "http://localhost:8000"
+
+[services."@ginger-society/MetadataService"]
+dev = "http://localhost:8081/metadata"
+stage = "https://api-staging.gingersociety.org/metadata"
+stage_k8 = "http://metadata-service-api-service/metadata"
 
 [portals_refs]

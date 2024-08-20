@@ -32,6 +32,8 @@ pub async fn up(tera: Tera) {
 
             let db_compose_config = read_compose_config_file("db-compose.toml").unwrap();
 
+            println!("{:?}", db_compose_config);
+
             match metadata_get_dbschema_by_id(
                 &open_api_config,
                 MetadataGetDbschemaByIdParams {
@@ -41,13 +43,16 @@ pub async fn up(tera: Tera) {
             )
             .await
             {
-                Ok(response) => match serde_json::from_str(&response.data.unwrap().unwrap()) {
-                    Ok(schemas) => schemas,
-                    Err(err) => {
-                        eprintln!("Error parsing schema from response: {:?}", err);
-                        return;
+                Ok(response) => {
+                    println!("{:?}", response);
+                    match serde_json::from_str(&response.data.unwrap().unwrap()) {
+                        Ok(schemas) => schemas,
+                        Err(err) => {
+                            eprintln!("Error parsing schema from response: {:?}", err);
+                            return;
+                        }
                     }
-                },
+                }
                 Err(e) => {
                     println!("{:?}", e);
                     eprintln!("Error getting the schema, please check your network");

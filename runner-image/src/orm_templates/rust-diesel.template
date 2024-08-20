@@ -36,7 +36,7 @@ use schema::{ {% for key, value in schemas.items %}{{value.table_name}},{% endfo
 
 {% for key, value in schemas.items %}
 
-#[derive(Queryable, Debug, Selectable, Serialize, Deserialize, JsonSchema{% if value.fields.id %},Identifiable{% endif %}{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
+#[derive(Queryable, Debug, Clone, Selectable, Serialize, Deserialize, JsonSchema{% if value.fields.id %},Identifiable{% endif %}{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
 {% for decoration in value.rust_decorations %}{{decoration | safe}}{% endfor %}
 #[diesel(check_for_backend(diesel::pg::Pg))]
 #[diesel(table_name = {{value.table_name}})]
@@ -48,7 +48,7 @@ pub struct {{key |title}} {
 
 {% for key, value in schemas.items %}
 
-#[derive(Queryable, Debug, Selectable, Serialize, Deserialize, Insertable, JsonSchema{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
+#[derive(Queryable, Debug, Clone, Selectable, Serialize, Deserialize, Insertable, JsonSchema{% for derive in value.rust_derive%},{{derive}}{% endfor %})]
 {% for decoration in value.rust_decorations %}{{decoration | safe}}{% endfor %}
 #[diesel(check_for_backend(diesel::pg::Pg))]
 #[diesel(table_name = {{value.table_name}})]

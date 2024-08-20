@@ -19,11 +19,12 @@ from ginger.contrib import admin
 from ginger.urls import include, path
 from src.views import *
 from ginger.drf_yasg.views import get_schema_view
+from ginger.contrib.conf import settings
 
 schema_view = get_schema_view(
     openapi.Info(
         title="Snippets API",
-        default_version="v1.0.0",
+        default_version=settings.VERSION,
         description="Test description",
         terms_of_service="https://www.google.com/policies/terms/",
         contact=openapi.Contact(email="contact@snippets.local"),
