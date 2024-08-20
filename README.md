@@ -34,3 +34,4 @@ In the pipeline of the db repo that it creates , it should execute the following
 docker run -e DB_NAME=NAME -e DB_USERNAME=USERNAME -e DB_PASSWORD=PASS -e DB_HOST=HOST -e DB_PORT=PORT -v $(pwd)/models.py:/app/src/models.py -v $(pwd)/admin.py:/app/src/admin.py -v $(pwd)/migrations:/app/src/migrations gingersociety/db-compose-migrator:latest
 
 ```
+this is to run the migrations
