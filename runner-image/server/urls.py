@@ -19,7 +19,7 @@ from ginger.contrib import admin
 from ginger.urls import include, path
 from src.views import *
 from ginger.drf_yasg.views import get_schema_view
-from ginger.contrib.conf import settings
+from ginger.conf import settings
 
 schema_view = get_schema_view(
     openapi.Info(
