@@ -62,6 +62,10 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    // State for the table selection
+    let selected_row = Arc::new(Mutex::new(0));
+    let selected_row_clone = Arc::clone(&selected_row);
+
     // Scroll position
     let mut scroll: u16 = 0;
 
@@ -92,6 +96,19 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 Constraint::Length(10),
                 Constraint::Length(10),
             ];
+
+            // Apply highlight style based on the selected row
+            let rows: Vec<Row> = rows
+                .iter()
+                .enumerate()
+                .map(|(i, row)| {
+                    if i == *selected_row.lock().unwrap() {
+                        row.clone().style(Style::default().bg(Color::LightYellow))
+                    } else {
+                        row.clone()
+                    }
+                })
+                .collect();
 
             let table = Table::new(rows, widths)
                 .header(
@@ -137,14 +154,28 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 match key.code {
                     KeyCode::Char('q') => break,
                     KeyCode::Down => {
-                        if scroll < output_lines.lock().unwrap().len() as u16 {
-                            scroll += 1;
-                        }
+                        let mut row = selected_row.lock().unwrap();
+                        *row = (*row + 1).min(2); // Adjust based on the number of rows
                     }
                     KeyCode::Up => {
-                        if scroll > 0 {
-                            scroll -= 1; // Scroll up
-                        }
+                        let mut row = selected_row.lock().unwrap();
+                        *row = (*row as u16).saturating_sub(1) as usize; // Adjust based on the number of rows
+                    }
+                    KeyCode::Enter => {
+                        let mut rows = ["RDBMS", "DocumentDB", "Cache"];
+
+                        let mut status = ["Active", "Inactive", "Active"];
+
+                        let mut row = selected_row.lock().unwrap();
+                        let row_idx = *row;
+                        status[row_idx] = if status[row_idx] == "Active" {
+                            "Inactive"
+                        } else {
+                            "Active"
+                        };
+
+                        // Apply the updated status
+                        rows[row_idx] = rows[row_idx];
                     }
                     _ => {}
                 }
