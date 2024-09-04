@@ -4,15 +4,19 @@ use schema_gen_service::apis::configuration::Configuration;
 use serde_json::Result;
 use std::path::Path;
 use templates::get_renderer;
+use ui::render_ui;
 use utils::read_db_config;
+use utils_v2::{read_config, write_config};
 
 mod configure;
 mod init;
 mod render;
 mod templates;
 mod types;
+mod ui;
 mod up;
 mod utils;
+mod utils_v2;
 
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -32,6 +36,8 @@ enum Commands {
         #[arg(short, long)]
         skip: bool,
     },
+    InitV2,
+    UI,
 }
 
 #[derive(Parser, Debug)]
@@ -63,6 +69,21 @@ fn main() -> Result<()> {
                 ..Default::default()
             };
             render::main(&open_api_config, db_config, db_config_path, skip)
+        }
+        Commands::InitV2 => {
+            let db_conpose_config = read_config("db-compose.toml").unwrap();
+            println!("{:?}", db_conpose_config);
+            match write_config("db-compose.toml", &db_conpose_config) {
+                Ok(_) => {
+                    println!("Saved back")
+                }
+                Err(e) => {
+                    println!("{:?}", e)
+                }
+            }
+        }
+        Commands::UI => {
+            render_ui();
         }
     }
 
