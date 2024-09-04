@@ -148,14 +148,4 @@ pub fn main(tera: Tera, repo: String) {
             println!("{:?}", e)
         }
     };
-
-    match tera.render("db.design.json.tpl", &context) {
-        Ok(rendered_template) => {
-            let mut output_file = File::create(format!("{}/db.design.json", name)).unwrap();
-            output_file.write_all(rendered_template.as_bytes()).unwrap();
-        }
-        Err(e) => {
-            println!("{:?}", e)
-        }
-    };
 }

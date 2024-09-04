@@ -19,3 +19,4 @@ schema-gen-service_client
 MetadataService_client
 bin
 .env
+test-db-space

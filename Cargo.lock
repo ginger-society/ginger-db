@@ -394,21 +394,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "db-compose"
-version = "0.1.0"
-dependencies = [
- "MetadataService",
- "clap",
- "inquire",
- "schema-gen-service",
- "serde",
- "serde_json",
- "tera",
- "tokio",
- "toml",
-]
-
-[[package]]
 name = "deranged"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -566,6 +551,21 @@ name = "gimli"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40ecd4077b5ae9fd2e9e169b102c6c330d0605168eb0e8bf79952b256dbefffd"
+
+[[package]]
+name = "ginger-db"
+version = "0.1.0"
+dependencies = [
+ "MetadataService",
+ "clap",
+ "inquire",
+ "schema-gen-service",
+ "serde",
+ "serde_json",
+ "tera",
+ "tokio",
+ "toml",
+]
 
 [[package]]
 name = "globset"

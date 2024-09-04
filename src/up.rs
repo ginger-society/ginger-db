@@ -1,6 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, Write};
-use std::path::Path;
+use std::io::Write;
 use std::process::Command;
 
 use tera::{Context, Tera};
@@ -11,58 +10,40 @@ use MetadataService::get_configuration;
 
 use crate::types::{Schema, SchemaType};
 use crate::utils::read_compose_config_file;
-use serde::Deserialize;
 
 #[tokio::main]
 pub async fn up(tera: Tera) {
-    let schemas = match File::open("db.design.json") {
-        Ok(file) => {
-            let reader = BufReader::new(file);
-            // Read the JSON contents of the file as an instance of `Schema`.
-            match serde_json::from_reader(reader) {
+    let open_api_config = get_configuration();
+
+    let db_compose_config = read_compose_config_file("db-compose.toml").unwrap();
+
+    println!("{:?}", db_compose_config);
+
+    let mut schemas: Vec<Schema> = match metadata_get_dbschema_by_id(
+        &open_api_config,
+        MetadataGetDbschemaByIdParams {
+            schema_id: db_compose_config.schema_id.to_string(),
+            branch: Some(db_compose_config.branch.to_string()),
+        },
+    )
+    .await
+    {
+        Ok(response) => {
+            println!("{:?}", response);
+            match serde_json::from_str(&response.data.unwrap().unwrap()) {
                 Ok(schemas) => schemas,
                 Err(err) => {
-                    eprintln!("Error reading JSON from file: {:?}", err);
+                    eprintln!("Error parsing schema from response: {:?}", err);
                     return;
                 }
             }
         }
-        Err(_) => {
-            let open_api_config = get_configuration();
-
-            let db_compose_config = read_compose_config_file("db-compose.toml").unwrap();
-
-            println!("{:?}", db_compose_config);
-
-            match metadata_get_dbschema_by_id(
-                &open_api_config,
-                MetadataGetDbschemaByIdParams {
-                    schema_id: db_compose_config.schema_id.to_string(),
-                    branch: Some(db_compose_config.branch.to_string()),
-                },
-            )
-            .await
-            {
-                Ok(response) => {
-                    println!("{:?}", response);
-                    match serde_json::from_str(&response.data.unwrap().unwrap()) {
-                        Ok(schemas) => schemas,
-                        Err(err) => {
-                            eprintln!("Error parsing schema from response: {:?}", err);
-                            return;
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("{:?}", e);
-                    eprintln!("Error getting the schema, please check your network");
-                    return;
-                }
-            }
+        Err(e) => {
+            println!("{:?}", e);
+            eprintln!("Error getting the schema, please check your network");
+            return;
         }
     };
-
-    let mut schemas: Vec<Schema> = schemas;
 
     schemas.sort_by(|a, _b| {
         if a.schema_type == SchemaType::Enum {
