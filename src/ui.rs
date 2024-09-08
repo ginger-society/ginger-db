@@ -175,7 +175,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         };
 
                         // Apply the updated status
-                        rows[row_idx] = rows[row_idx];
+                        rows[row_idx] = "Active";
                     }
                     _ => {}
                 }

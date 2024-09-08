@@ -1,56 +1,55 @@
 version: '3'
 
 services:
-    {%  if create_rdms %}
-    {{name}}-runtime:
+    {% for db in databases %}
+    {% if db.db_type == "rdbms" %}
+    {{ db.name }}-runtime:
         image: gingersociety/db-compose-runtime:latest
         ports:
-            - {{studio_port}}:8000
+            - {{ db.studio_port }}:8000
         environment:
-            - DB_NAME={{name}}-db
-            - DB_USERNAME={{db_username}}
-            - DB_PASSWORD={{db_password}}
-            - DB_HOST={{name}}-db
+            - DB_NAME={{ db.name }}-db
+            - DB_USERNAME=postgres
+            - DB_PASSWORD=postgres
+            - DB_HOST={{ db.name }}-db
             - DB_PORT=5432
         volumes:
-            - ./models.py:/app/src/models.py
-            - ./admin.py:/app/src/admin.py
-            - ./migrations:/app/src/migrations
+            - ./{{ db.name }}/models.py:/app/src/models.py
+            - ./{{ db.name }}/admin.py:/app/src/admin.py
+            - ./{{ db.name }}/migrations:/app/src/migrations
         depends_on:
-            - {{name}}-db
-    {{name}}-db:
+            - {{ db.name }}-db
+    {{ db.name }}-db:
         image: postgres:14.1-alpine
         restart: always
         environment:
-            - POSTGRES_USER={{db_password}}
-            - POSTGRES_PASSWORD={{db_password}}
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
         ports:
-            - {{port}}:5432
+            - {{ db.port }}:5432
         volumes:
-            - ./pgsql:/var/lib/postgresql/data
-    {% endif %}
-    {%  if create_mongodb %}
-    {{name}}-mongodb:
+            - ./{{ db.name }}/pgsql:/var/lib/postgresql/data
+    {% elif db.db_type == "documentdb" %}
+    {{ db.name }}-mongodb:
         image: mongo:latest
         environment:
-            MONGO_INITDB_ROOT_USERNAME: {{mongo_username}}
-            MONGO_INITDB_ROOT_PASSWORD: {{mongo_password}}
+            MONGO_INITDB_ROOT_USERNAME: mongo
+            MONGO_INITDB_ROOT_PASSWORD: mongo
         ports:
-            - {{mongo_port}}:27017
+            - {{ db.port }}:27017
         volumes:
-            - ./mongodb:/data/db
+            - ./{{ db.name }}/mongodb:/data/db
 
-    {{name}}-mongo-gui:
+    {{ db.name }}-mongo-gui:
         image: ugleiton/mongo-gui
         platform: linux/amd64
         restart: always
         ports:
-            - "{{mongo_studio_port}}:4321"
+            - "{{ db.studio_port }}:4321"
         environment:
-            - MONGO_URL=mongodb://{{mongo_username}}:{{mongo_password}}@{{name}}-mongodb:27017
-    {% endif %}
-    {%  if create_redis %}
-    {{name}}-redis:
+            - MONGO_URL=mongodb://mongo:mongo@{{ db.name }}-mongodb:27017
+    {% elif db.db_type == "cache" %}
+    {{ db.name }}-redis:
         image: bitnami/redis:6.2.5
         restart: always
         environment:
@@ -61,5 +60,6 @@ services:
             timeout: 3s
             retries: 50
         ports:
-            - {{redis_port}}:6379
+            - {{ db.port }}:6379
     {% endif %}
+    {% endfor %}

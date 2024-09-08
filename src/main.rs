@@ -5,8 +5,9 @@ use serde_json::Result;
 use std::path::Path;
 use templates::get_renderer;
 use ui::render_ui;
+use up::up;
 use utils::read_db_config;
-use utils_v2::{read_config, write_config};
+use utils_v2::{add_db, alter_db, read_config, write_config};
 
 mod configure;
 mod init;
@@ -21,11 +22,7 @@ mod utils_v2;
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Initialize a database project
-    Init {
-        /// repo is of the format schema_id/branch
-        #[arg(short, long)]
-        repo: String,
-    },
+    Init,
     /// Bring up the database up just like docker-compose
     Up,
     /// Configures a new db connection in a project
@@ -36,12 +33,13 @@ enum Commands {
         #[arg(short, long)]
         skip: bool,
     },
-    InitV2,
     UI,
+    AddDB,
+    AlterDB,
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "db-compose")]
+#[command(name = "ginger-db")]
 #[command(about = "A database composition tool", long_about = None)]
 #[command(version, long_about = None)]
 struct Args {
@@ -50,15 +48,16 @@ struct Args {
     command: Commands,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args = Args::parse();
     // Use globbing
     let tera = get_renderer();
     let db_config_path = Path::new("database.toml");
 
     match args.command {
-        Commands::Init { repo } => init::main(tera, repo),
-        Commands::Up => up::up(tera),
+        Commands::Init => init::main(tera).await,
+        Commands::Up => up(tera).await,
         Commands::Configure => configure::main(),
         Commands::Render { skip } => {
             // Read the configuration using the read_db_config function
@@ -68,11 +67,27 @@ fn main() -> Result<()> {
                 base_path: db_config.schema.url.clone(),
                 ..Default::default()
             };
-            render::main(&open_api_config, db_config, db_config_path, skip)
+            render::main(&open_api_config, db_config, db_config_path, skip).await
         }
-        Commands::InitV2 => {
-            let db_conpose_config = read_config("db-compose.toml").unwrap();
-            println!("{:?}", db_conpose_config);
+        Commands::AlterDB => {
+            let mut db_conpose_config = read_config("db-compose.toml").unwrap();
+
+            alter_db(&mut db_conpose_config);
+
+            match write_config("db-compose.toml", &db_conpose_config) {
+                Ok(_) => {
+                    println!("Saved back")
+                }
+                Err(e) => {
+                    println!("{:?}", e)
+                }
+            }
+        }
+        Commands::AddDB => {
+            let mut db_conpose_config = read_config("db-compose.toml").unwrap();
+
+            add_db(&mut db_conpose_config);
+
             match write_config("db-compose.toml", &db_conpose_config) {
                 Ok(_) => {
                     println!("Saved back")

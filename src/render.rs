@@ -16,7 +16,7 @@ use schema_gen_service::models::{ModelsReponse, RenderedModelsReponse};
 use crate::types::{DBConfig, LANG, ORM};
 use crate::utils::write_db_config;
 
-pub fn main(
+pub async fn main(
     open_api_config: &Configuration,
     mut db_config: DBConfig,
     db_config_path: &Path,
@@ -35,7 +35,7 @@ pub fn main(
         return;
     }
 
-    let app_tables_list = match get_namespace_tables(&open_api_config) {
+    let app_tables_list = match get_namespace_tables(&open_api_config).await {
         Ok(d) => d,
         Err(error) => {
             println!(
@@ -100,13 +100,12 @@ pub fn main(
                 csv_list += &selection;
             }
 
-            fetch_and_process_models(&open_api_config, csv_list, db_config)
+            fetch_and_process_models(&open_api_config, csv_list, db_config).await
         }
         Err(error) => eprintln!("{}", error),
     }
 }
 
-#[tokio::main]
 async fn get_rendered_tables(
     openapi_configuration: &Configuration,
     language: LANG,
@@ -137,7 +136,7 @@ pub fn remove_dir_contents<P: AsRef<Path>>(path: P) -> io::Result<()> {
     Ok(())
 }
 
-fn fetch_and_process_models(
+async fn fetch_and_process_models(
     open_api_config: &Configuration,
     csv_list: String,
     db_config: DBConfig,
@@ -147,7 +146,9 @@ fn fetch_and_process_models(
         db_config.schema.lang,
         db_config.schema.orm,
         csv_list,
-    ) {
+    )
+    .await
+    {
         Ok(models) => {
             match fs::create_dir_all(&db_config.schema.root) {
                 Ok(_) => {}
@@ -200,7 +201,6 @@ fn get_formated_str_selected_models(a: &[ListOption<&String>]) -> String {
     return output;
 }
 
-#[tokio::main]
 async fn get_namespace_tables(
     openapi_configuration: &Configuration,
 ) -> Result<Vec<ModelsReponse>, Box<dyn std::error::Error>> {
