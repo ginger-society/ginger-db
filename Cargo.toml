@@ -2,7 +2,7 @@
 description = "A cli tool for working with different types of databases"
 edition = "2021"
 name = "ginger-db"
-version = "0.1.0"
+version = "0.10.0-nightly.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

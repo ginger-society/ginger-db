@@ -12,12 +12,10 @@ feat:
 	
  - [1f31ffa535](https://github.com/ginger-society/ginger-db1f31ffa5358e2165d87eaec23cd76a13127198ee) (Ginger Society Admin) feat: sepeated runtime sub project into its own repo
 	
+chore:
+ - [2c268c0ddd](https://github.com/ginger-society/ginger-db2c268c0ddd2cad3ff8a0483b660e6f4e02f5737f) (Ginger Society Admin) chore: version bump to 0.9.0-nightly.0
+	
 ## 0.8.0-nightly.0 - 2024-08-20
-fix:
- - [65d07c6796](https://github.com/ginger-society/ginger-db65d07c6796f3c54b147b8ac1a76894c1447db346) (Ginger Society Admin) fix: pipeline
-	
- - [c781b65940](https://github.com/ginger-society/ginger-dbc781b6594065921b35516216ba5541683a555b02) (Ginger Society Admin) fix: pipeline
-	
 chore:
  - [96c3348a72](https://github.com/ginger-society/ginger-db96c3348a72e1f1ede06a2873c3f1e487af3927a0) (Ginger Society Admin) chore: version bump to 0.8.0-nightly.0
 	
@@ -27,6 +25,11 @@ feat:
  - [e03f8ec4d8](https://github.com/ginger-society/ginger-dbe03f8ec4d8c47ec799f823624ff3e3fb3b637e7e) (Ginger Society Admin) feat: update migrate script and added pipeline file
 	
  - [70511067cb](https://github.com/ginger-society/ginger-db70511067cb521737dd9855ff67fc5d641a7bde42) (Ginger Society Admin) feat: added metadata.toml files
+	
+fix:
+ - [65d07c6796](https://github.com/ginger-society/ginger-db65d07c6796f3c54b147b8ac1a76894c1447db346) (Ginger Society Admin) fix: pipeline
+	
+ - [c781b65940](https://github.com/ginger-society/ginger-dbc781b6594065921b35516216ba5541683a555b02) (Ginger Society Admin) fix: pipeline
 	
 ## 0.7.0-nightly.0 - 2024-08-20
 chore:
@@ -38,6 +41,12 @@ chore:
 	
  - [94eb61ed9c](https://github.com/ginger-society/ginger-db94eb61ed9cdbda6b8a1d91c5527c01729031838e) (Ginger Society Admin) chore: updated gitignore and readme
 	
+xhore:
+ - [31b613a7e3](https://github.com/ginger-society/ginger-db31b613a7e3ce3d7d2fcf8f4702b250b805c576c3) (Ginger Society Admin) xhore: removed unused imports in diesel models template
+	
+fix:
+ - [e676b47671](https://github.com/ginger-society/ginger-dbe676b476717b312d243499aa007fb5731838b7c8) (Ginger Society Admin) fix: m2m fields for rust - diesel , added joinable statements
+	
 feat:
  - [37287cfb69](https://github.com/ginger-society/ginger-db37287cfb698f150a1ed7ded0a8cbe58424b8605e) (Ginger Society Admin) feat: created seperate services.toml for schema service generator
 	
@@ -47,12 +56,6 @@ feat:
 	
  - [aee7ce0739](https://github.com/ginger-society/ginger-dbaee7ce0739a78815fe9612428c7c9115259db861) (Ginger Society Admin) feat: updated service schema generation client
 	
-fix:
- - [e676b47671](https://github.com/ginger-society/ginger-dbe676b476717b312d243499aa007fb5731838b7c8) (Ginger Society Admin) fix: m2m fields for rust - diesel , added joinable statements
-	
-xhore:
- - [31b613a7e3](https://github.com/ginger-society/ginger-db31b613a7e3ce3d7d2fcf8f4702b250b805c576c3) (Ginger Society Admin) xhore: removed unused imports in diesel models template
-	
 ## 0.5.0-nightly.0 - 2024-07-04
 chore:
  - [cc5a394c9a](https://github.com/ginger-society/ginger-dbcc5a394c9ab8b0d01e1c14281f4b67646f761af5) (Ginger Society Admin) chore: version bump to 0.5.0-nightly.0
@@ -61,9 +64,6 @@ feat:
  - [b7b5159a31](https://github.com/ginger-society/ginger-dbb7b5159a31eb0b620220b74e6d98af788cc1f696) (Ginger Society Admin) feat: added admin.py file and updated ginger-dj models rendering template
 	
 ## 0.4.0-nightly.0 - 2024-07-04
-chore:
- - [2acc37c8cc](https://github.com/ginger-society/ginger-db2acc37c8cc49b708aeaadf882d51a1ea16e926f7) (Ginger Society Admin) chore: version bump to 0.4.0-nightly.0
-	
 feat:
  - [424a6e785e](https://github.com/ginger-society/ginger-db424a6e785e40c47d6153b86c7137588d7e99b1c1) (Ginger Society Admin) feat: added support for ginger-dj orm
 	
@@ -73,6 +73,9 @@ feat:
 	
 fix:
  - [4447cf7fd6](https://github.com/ginger-society/ginger-db4447cf7fd6817a1fbfff69eb2a728b10d850ebf2) (Ginger Society Admin) fix: models generation for sqlalchemy
+	
+chore:
+ - [2acc37c8cc](https://github.com/ginger-society/ginger-db2acc37c8cc49b708aeaadf882d51a1ea16e926f7) (Ginger Society Admin) chore: version bump to 0.4.0-nightly.0
 	
 ## 0.3.0-nightly.0 - 2024-07-02
 feat:
@@ -88,9 +91,6 @@ chore:
  - [fe47ad6e55](https://github.com/ginger-society/ginger-dbfe47ad6e552d0d06eff4e9a4b99907348f821be6) (Ginger Society Admin) chore: commited changelog.md
 	
 ## 0.1.0-nightly.0 - 2024-07-02
-fix:
- - [54eb1fbe66](https://github.com/ginger-society/ginger-db54eb1fbe66b695ee3be5648e62a51995cee07b0b) (Ginger Society Admin) fix: docker compose
-	
 feat:
  - [a7f246ae36](https://github.com/ginger-society/ginger-dba7f246ae36bdf5048f76f8053b3adbcf91feb16c) (Ginger Society Admin) feat: added releaser support
 	
@@ -175,6 +175,9 @@ feat:
  - [839111d507](https://github.com/ginger-society/ginger-db839111d507b9053dc35f724d5fa4806fbf0e79c2) (Ginger Society Admin) feat: added tera context and rendering
 	
  - [aa1d663287](https://github.com/ginger-society/ginger-dbaa1d663287346cd278fbacb06bddafd8c9ed38ba) (Ginger Society Admin) feat: added Schema structs
+	
+fix:
+ - [54eb1fbe66](https://github.com/ginger-society/ginger-db54eb1fbe66b695ee3be5648e62a51995cee07b0b) (Ginger Society Admin) fix: docker compose
 	
 chore:
  - [394747d041](https://github.com/ginger-society/ginger-db394747d0416b12a653043330993edb82b54c34da) (Ginger Society Admin) chore: version bump to 0.1.0-nightly.0
