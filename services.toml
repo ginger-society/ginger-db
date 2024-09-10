@@ -1,7 +1,7 @@
 dir = "."
 lang = "Rust"
 organization_id = "ginger-society"
-service_type = "Executable"
+spec_url = "/openapi.json"
 
 [services."@ginger-society/schema-gen-service"]
 dev = "http://localhost:8000"
@@ -13,3 +13,5 @@ stage = "https://api-staging.gingersociety.org/metadata"
 stage_k8 = "http://metadata-service-api-service/metadata"
 
 [portals_refs]
+
+[urls]
