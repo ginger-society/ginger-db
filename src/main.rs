@@ -1,4 +1,4 @@
-use clap::{Arg, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 use ginger_shared_rs::{read_consumer_db_config, read_db_config, write_db_config};
 use schema_gen_service::apis::configuration::Configuration;

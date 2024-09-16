@@ -11,7 +11,7 @@ use ratatui::{
     Terminal,
 };
 use std::{
-    io::{self, Write},
+    io::{self},
     process::Stdio,
     sync::{Arc, Mutex},
     time::Duration,

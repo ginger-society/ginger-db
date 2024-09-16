@@ -1,9 +1,5 @@
 use ginger_shared_rs::{write_db_config, DatabaseConfig, DbType, GingerDBConfig};
 use inquire::{Confirm, CustomType, Select, Text};
-use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::{fs, io::Write, str::FromStr};
-use toml;
 
 pub fn alter_db(config: &mut GingerDBConfig) -> Result<(), Box<dyn std::error::Error>> {
     // Create a list of database names for selection
