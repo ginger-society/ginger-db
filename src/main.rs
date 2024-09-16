@@ -1,13 +1,13 @@
 use clap::{Arg, Parser, Subcommand};
 
-use ginger_shared_rs::read_consumer_db_config;
+use ginger_shared_rs::{read_consumer_db_config, read_db_config, write_db_config};
 use schema_gen_service::apis::configuration::Configuration;
 use serde_json::Result;
 use std::path::Path;
 use templates::get_renderer;
 use ui::render_ui;
 use up::up;
-use utils::{add_db, alter_db, read_config, write_config};
+use utils::{add_db, alter_db};
 
 mod configure;
 mod init;
@@ -69,11 +69,11 @@ async fn main() -> Result<()> {
             render::main(&open_api_config, db_config, db_config_path, skip).await
         }
         Commands::AlterDB => {
-            let mut db_conpose_config = read_config("db-compose.toml").unwrap();
+            let mut db_conpose_config = read_db_config("db-compose.toml").unwrap();
 
             alter_db(&mut db_conpose_config);
 
-            match write_config("db-compose.toml", &db_conpose_config) {
+            match write_db_config("db-compose.toml", &db_conpose_config) {
                 Ok(_) => {
                     println!("Saved back")
                 }
@@ -83,11 +83,11 @@ async fn main() -> Result<()> {
             }
         }
         Commands::AddDB => {
-            let mut db_conpose_config = read_config("db-compose.toml").unwrap();
+            let mut db_conpose_config = read_db_config("db-compose.toml").unwrap();
 
             add_db(&mut db_conpose_config);
 
-            match write_config("db-compose.toml", &db_conpose_config) {
+            match write_db_config("db-compose.toml", &db_conpose_config) {
                 Ok(_) => {
                     println!("Saved back")
                 }

@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{exit, Command};
 
+use ginger_shared_rs::{read_db_config, DbType};
 use tera::{Context, Tera};
 use MetadataService::apis::default_api::{
     metadata_get_dbschema_by_id, MetadataGetDbschemaByIdParams,
@@ -12,7 +13,6 @@ use MetadataService::get_configuration;
 use serde_json::Value;
 
 use crate::types::{Schema, SchemaType};
-use crate::utils::{read_config, DbType};
 
 pub async fn up(tera: Tera) {
     let home_dir = match dirs::home_dir() {
@@ -60,7 +60,7 @@ pub async fn up(tera: Tera) {
 
     let open_api_config = get_configuration(Some(token));
 
-    let db_compose_config = read_config("db-compose.toml").unwrap();
+    let db_compose_config = read_db_config("db-compose.toml").unwrap();
 
     for db in db_compose_config
         .database

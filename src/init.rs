@@ -1,17 +1,10 @@
-use std::{
-    fs::{self, File},
-    io::{Read, Write},
-    path::PathBuf,
-    process::exit,
-};
+use std::{fs::File, io::Read, path::PathBuf, process::exit};
 
+use ginger_shared_rs::{write_db_config, GingerDBConfig};
 use serde_json::Value;
 
-use inquire::{required, Confirm, CustomType, Text};
-use tera::{Context, Tera};
+use tera::Tera;
 use MetadataService::{apis::default_api::metadata_get_current_workspace, get_configuration};
-
-use crate::utils::{write_config, GingerDBConfig};
 
 pub async fn main(tera: Tera) {
     let home_dir = match dirs::home_dir() {
@@ -67,7 +60,7 @@ pub async fn main(tera: Tera) {
                 database: vec![],
             };
 
-            match write_config("db-compose.toml", &db_configs) {
+            match write_db_config("db-compose.toml", &db_configs) {
                 Ok(_) => println!("Initialized successfully, use ginger-db add-db to get started"),
                 Err(_) => {
                     println!("Error saving the file, please check if you have all the permissions")
