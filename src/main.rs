@@ -1,13 +1,13 @@
 use clap::{Arg, Parser, Subcommand};
 
+use ginger_shared_rs::read_consumer_db_config;
 use schema_gen_service::apis::configuration::Configuration;
 use serde_json::Result;
 use std::path::Path;
 use templates::get_renderer;
 use ui::render_ui;
 use up::up;
-use utils::read_db_config;
-use utils_v2::{add_db, alter_db, read_config, write_config};
+use utils::{add_db, alter_db, read_config, write_config};
 
 mod configure;
 mod init;
@@ -17,7 +17,6 @@ mod types;
 mod ui;
 mod up;
 mod utils;
-mod utils_v2;
 
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -61,7 +60,7 @@ async fn main() -> Result<()> {
         Commands::Configure => configure::main(),
         Commands::Render { skip } => {
             // Read the configuration using the read_db_config function
-            let db_config = read_db_config(db_config_path).unwrap();
+            let db_config = read_consumer_db_config(db_config_path).unwrap();
 
             let open_api_config = Configuration {
                 base_path: db_config.schema.url.clone(),

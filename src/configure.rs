@@ -1,11 +1,7 @@
 use std::{path::Path, process::exit};
 
+use ginger_shared_rs::{write_consumer_db_config, ConsumerDBConfig, DBSchema, DBTables, LANG, ORM};
 use inquire::{InquireError, Select, Text};
-
-use crate::{
-    types::{DBConfig, DBSchema, DBTables, LANG, ORM},
-    utils::write_db_config,
-};
 
 pub fn main() {
     let options = LANG::all();
@@ -43,7 +39,7 @@ pub fn main() {
                                 Ok(root) => {
                                     let db_config_path = Path::new("database.toml");
 
-                                    let db_config = DBConfig {
+                                    let db_config = ConsumerDBConfig {
                                         schema: DBSchema {
                                             url: schema_url,
                                             lang: lang_selected,
@@ -51,10 +47,11 @@ pub fn main() {
                                             root: root,
                                             schema_id: Some(schema_id),
                                             branch: None,
+                                            cache_schema_id: None,
                                         },
                                         tables: DBTables { names: vec![] },
                                     };
-                                    write_db_config(db_config_path, &db_config);
+                                    write_consumer_db_config(db_config_path, &db_config);
                                     println!("Success!")
                                 }
                                 Err(_) => {

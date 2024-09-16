@@ -11,7 +11,7 @@ use inquire::{required, Confirm, CustomType, Text};
 use tera::{Context, Tera};
 use MetadataService::{apis::default_api::metadata_get_current_workspace, get_configuration};
 
-use crate::utils_v2::{write_config, Config};
+use crate::utils::{write_config, GingerDBConfig};
 
 pub async fn main(tera: Tera) {
     let home_dir = match dirs::home_dir() {
@@ -61,7 +61,7 @@ pub async fn main(tera: Tera) {
 
     match metadata_get_current_workspace(&metadata_service_config).await {
         Ok(resp) => {
-            let db_configs = Config {
+            let db_configs = GingerDBConfig {
                 branch: "stage".to_string(),
                 organization_id: resp.org_id,
                 database: vec![],

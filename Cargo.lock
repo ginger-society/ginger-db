@@ -650,6 +650,7 @@ dependencies = [
  "clap",
  "crossterm 0.28.1",
  "dirs",
+ "ginger-shared-rs",
  "inquire",
  "ratatui",
  "schema-gen-service",
@@ -657,6 +658,17 @@ dependencies = [
  "serde_json",
  "tera",
  "tokio",
+ "toml",
+]
+
+[[package]]
+name = "ginger-shared-rs"
+version = "0.9.0-nightly.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46503b9ccc386dd77709baa40e2f2f5b512bbb5f31019fdd22f674ca9be32977"
+dependencies = [
+ "clap",
+ "serde",
  "toml",
 ]
 

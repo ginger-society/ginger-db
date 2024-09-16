@@ -4,6 +4,7 @@ use std::path::Path;
 use std::process::exit;
 use std::{fs, io};
 
+use ginger_shared_rs::{write_consumer_db_config, ConsumerDBConfig, LANG, ORM};
 use inquire::formatter::MultiOptionFormatter;
 use inquire::list_option::ListOption;
 use inquire::validator::Validation;
@@ -13,12 +14,9 @@ use schema_gen_service::apis::get_all_models_api;
 use schema_gen_service::apis::render_models_api::{self, RenderModelsListParams};
 use schema_gen_service::models::{ModelsReponse, RenderedModelsReponse};
 
-use crate::types::{DBConfig, LANG, ORM};
-use crate::utils::write_db_config;
-
 pub async fn main(
     open_api_config: &Configuration,
-    mut db_config: DBConfig,
+    mut db_config: ConsumerDBConfig,
     db_config_path: &Path,
     skip: bool,
 ) {
@@ -89,7 +87,7 @@ pub async fn main(
         Ok(selected_tables) => {
             db_config.tables.names = selected_tables.clone();
 
-            write_db_config(db_config_path, &db_config);
+            write_consumer_db_config(db_config_path, &db_config);
             println!("Generating models...");
 
             let mut csv_list = String::from("");
@@ -139,7 +137,7 @@ pub fn remove_dir_contents<P: AsRef<Path>>(path: P) -> io::Result<()> {
 async fn fetch_and_process_models(
     open_api_config: &Configuration,
     csv_list: String,
-    db_config: DBConfig,
+    db_config: ConsumerDBConfig,
 ) {
     match get_rendered_tables(
         open_api_config,

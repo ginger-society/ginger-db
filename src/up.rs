@@ -12,7 +12,7 @@ use MetadataService::get_configuration;
 use serde_json::Value;
 
 use crate::types::{Schema, SchemaType};
-use crate::utils_v2::{read_config, DbType};
+use crate::utils::{read_config, DbType};
 
 pub async fn up(tera: Tera) {
     let home_dir = match dirs::home_dir() {
