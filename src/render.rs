@@ -29,7 +29,7 @@ pub async fn main(
             }
             csv_list += &selection;
         }
-        fetch_and_process_models(&open_api_config, csv_list, db_config);
+        fetch_and_process_models(&open_api_config, csv_list, db_config).await;
         return;
     }
 

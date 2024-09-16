@@ -1,6 +1,8 @@
 use std::{path::Path, process::exit};
 
-use ginger_shared_rs::{write_consumer_db_config, ConsumerDBConfig, DBSchema, DBTables, LANG, ORM};
+use ginger_shared_rs::{
+    write_consumer_db_config, ConsumerDBConfig, ConsumerDBSchema, ConsumerDBTables, LANG, ORM,
+};
 use inquire::{InquireError, Select, Text};
 
 pub fn main() {
@@ -40,7 +42,7 @@ pub fn main() {
                                     let db_config_path = Path::new("database.toml");
 
                                     let db_config = ConsumerDBConfig {
-                                        schema: DBSchema {
+                                        schema: ConsumerDBSchema {
                                             url: schema_url,
                                             lang: lang_selected,
                                             orm: orm_selected,
@@ -49,7 +51,7 @@ pub fn main() {
                                             branch: None,
                                             cache_schema_id: None,
                                         },
-                                        tables: DBTables { names: vec![] },
+                                        tables: ConsumerDBTables { names: vec![] },
                                     };
                                     write_consumer_db_config(db_config_path, &db_config);
                                     println!("Success!")
