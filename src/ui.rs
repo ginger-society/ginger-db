@@ -19,7 +19,6 @@ use std::{
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-#[tokio::main]
 pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     // Setup terminal
     enable_raw_mode()?;

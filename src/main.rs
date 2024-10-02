@@ -71,33 +71,46 @@ async fn main() -> Result<()> {
         Commands::AlterDB => {
             let mut db_conpose_config = read_db_config("db-compose.toml").unwrap();
 
-            alter_db(&mut db_conpose_config);
-
-            match write_db_config("db-compose.toml", &db_conpose_config) {
-                Ok(_) => {
-                    println!("Saved back")
-                }
+            match alter_db(&mut db_conpose_config) {
+                Ok(_) => match write_db_config("db-compose.toml", &db_conpose_config) {
+                    Ok(_) => {
+                        println!("Saved back")
+                    }
+                    Err(e) => {
+                        println!("{:?}", e)
+                    }
+                },
                 Err(e) => {
-                    println!("{:?}", e)
+                    println!("error: {:?}", e);
                 }
-            }
+            };
         }
         Commands::AddDB => {
             let mut db_conpose_config = read_db_config("db-compose.toml").unwrap();
 
-            add_db(&mut db_conpose_config);
-
-            match write_db_config("db-compose.toml", &db_conpose_config) {
-                Ok(_) => {
-                    println!("Saved back")
-                }
+            match add_db(&mut db_conpose_config) {
+                Ok(_) => match write_db_config("db-compose.toml", &db_conpose_config) {
+                    Ok(_) => {
+                        println!("Saved back")
+                    }
+                    Err(e) => {
+                        println!("{:?}", e)
+                    }
+                },
                 Err(e) => {
-                    println!("{:?}", e)
+                    println!("error: {:?}", e);
                 }
-            }
+            };
         }
         Commands::UI => {
-            render_ui();
+            match render_ui().await {
+                Ok(_) => {
+                    println!("Exited!")
+                }
+                Err(e) => {
+                    println!("Unable to exit the expected way {:?}", e)
+                }
+            };
         }
     }
 

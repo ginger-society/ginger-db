@@ -45,7 +45,12 @@ pub fn alter_db(config: &mut GingerDBConfig) -> Result<(), Box<dyn std::error::E
 }
 pub fn add_db(config: &mut GingerDBConfig) -> Result<(), Box<dyn std::error::Error>> {
     // Ask for database type with a Select option
-    let db_type_options = vec![DbType::Rdbms, DbType::DocumentDb, DbType::Cache];
+    let db_type_options = vec![
+        DbType::Rdbms,
+        DbType::DocumentDb,
+        DbType::Cache,
+        DbType::MessageQueue,
+    ];
     let db_type =
         Select::new("Which database type do you want to add?", db_type_options).prompt()?;
 
@@ -80,6 +85,7 @@ pub fn add_db(config: &mut GingerDBConfig) -> Result<(), Box<dyn std::error::Err
         name,
         port: port.to_string(),
         studio_port,
+        links: vec![],
     });
 
     Ok(())

@@ -61,5 +61,14 @@ services:
             retries: 50
         ports:
             - {{ db.port }}:6379
+    {% elif db.db_type == "messagequeue" %}
+    {{ db.name }}-messagequeue:
+        image: rabbitmq:3-management
+        ports:
+            - {{ db.port }}:5672
+            - {{ db.studio_port }}:15672
+        environment:
+            RABBITMQ_DEFAULT_USER: user
+            RABBITMQ_DEFAULT_PASS: password
     {% endif %}
     {% endfor %}

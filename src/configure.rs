@@ -50,6 +50,7 @@ pub fn main() {
                                             schema_id: Some(schema_id),
                                             branch: None,
                                             cache_schema_id: None,
+                                            message_queue_schema_id: None,
                                         },
                                         tables: ConsumerDBTables { names: vec![] },
                                     };
