@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "MetadataService"
-version = "0.4.0-nightly.0"
+version = "0.6.0-nightly.0"
 dependencies = [
  "reqwest",
  "serde",
@@ -1689,7 +1689,7 @@ dependencies = [
 
 [[package]]
 name = "schema-gen-service"
-version = "0.9.0-nightly.0"
+version = "0.10.0-nightly.0"
 dependencies = [
  "reqwest",
  "serde",

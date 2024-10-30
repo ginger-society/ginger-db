@@ -1,7 +1,9 @@
 use clap::{Parser, Subcommand};
 
-use ginger_shared_rs::{read_consumer_db_config, read_db_config, write_db_config};
-use schema_gen_service::apis::configuration::Configuration;
+use ginger_shared_rs::{
+    read_consumer_db_config, read_db_config, utils::get_token_from_file_storage, write_db_config,
+};
+use schema_gen_service::apis::configuration::{ApiKey, Configuration};
 use serde_json::Result;
 use std::path::Path;
 use templates::get_renderer;
@@ -62,8 +64,14 @@ async fn main() -> Result<()> {
             // Read the configuration using the read_db_config function
             let db_config = read_consumer_db_config(db_config_path).unwrap();
 
+            let token = get_token_from_file_storage();
+
             let open_api_config = Configuration {
                 base_path: db_config.schema.url.clone(),
+                api_key: Some(ApiKey {
+                    key: token,
+                    prefix: Some("".to_string()),
+                }),
                 ..Default::default()
             };
             render::main(&open_api_config, db_config, db_config_path, skip).await
