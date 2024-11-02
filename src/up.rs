@@ -80,7 +80,7 @@ pub async fn up(tera: Tera) {
         .await
         {
             Ok(response) => {
-                println!("{:?}", response);
+                // println!("{:?}", response);
                 match serde_json::from_str(&response.data.unwrap().unwrap()) {
                     Ok(schemas) => schemas,
                     Err(err) => {
@@ -167,6 +167,15 @@ pub async fn up(tera: Tera) {
             };
             if let Err(err) = output_file.write_all(rendered_template.as_bytes()) {
                 eprintln!("Error writing to docker-compose.toml: {:?}", err);
+            }
+            // Run docker-compose up as a blocking command to allow terminal takeover
+            let status = Command::new("docker-compose")
+                .arg("up")
+                .status()
+                .expect("Failed to start docker-compose up");
+
+            if !status.success() {
+                eprintln!("docker-compose exited with status: {:?}", status);
             }
         }
         Err(_) => {
