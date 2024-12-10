@@ -25,7 +25,11 @@ enum Commands {
     /// Initialize a database project
     Init,
     /// Bring up the database up just like docker-compose
-    Up,
+    Up {
+        /// Skip the running docker compose up command
+        #[arg(short, long)]
+        skip: bool,
+    },
     /// Configures a new db connection in a project
     Configure,
     /// Generate the ORM models files as per the configuration
@@ -58,7 +62,7 @@ async fn main() -> Result<()> {
 
     match args.command {
         Commands::Init => init::main(tera).await,
-        Commands::Up => up(tera).await,
+        Commands::Up { skip } => up(tera, skip).await,
         Commands::Configure => configure::main(),
         Commands::Render { skip } => {
             // Read the configuration using the read_db_config function

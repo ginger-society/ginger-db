@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use crate::types::{Schema, SchemaType};
 
-pub async fn up(tera: Tera) {
+pub async fn up(tera: Tera, skip: bool) {
     let home_dir = match dirs::home_dir() {
         Some(path) => path,
         None => {
@@ -158,6 +158,9 @@ pub async fn up(tera: Tera) {
     match tera.render("docker-compose.yml.tpl", &tera_context) {
         Ok(rendered_template) => {
             println!("rendered");
+            if skip {
+                exit(0);
+            }
             let mut output_file = match File::create("docker-compose.yml") {
                 Ok(file) => file,
                 Err(err) => {

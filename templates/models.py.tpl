@@ -1,4 +1,4 @@
-from ginger.db import models
+from gingerdj.db import models
 
 {% for schema in schemas %}
 {% if schema.type == 'table' %}
