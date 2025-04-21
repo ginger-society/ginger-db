@@ -1,16 +1,23 @@
-dir = "."
 lang = "Rust"
 organization_id = "ginger-society"
-
-[services."@ginger-society/schema-gen-service"]
-dev = "http://localhost:8000"
-stage = "http://localhost:8000"
+dir = "."
 
 [services."@ginger-society/MetadataService"]
-dev = "http://localhost:8081/metadata"
+prod = "https://api.gingersociety.org/metadata"
 stage = "https://api-staging.gingersociety.org/metadata"
-stage_k8 = "http://metadata-service-api-service/metadata"
+
+[services."@ginger-society/schema-gen-service"]
+stage = "https://db-compose-runtime-test-env-675766508318.asia-south1.run.app"
+prod = "https://db-compose-test-env.gingersociety.org/"
 
 [portals_refs]
+
+[ws_refs."@ginger-society/MetadataService"]
+stage = ""
+prod = ""
+
+[ws_refs."@ginger-society/schema-gen-service"]
+stage = ""
+prod = ""
 
 [urls]

@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 
 use ginger_shared_rs::{read_db_config, DbType};
@@ -80,7 +80,7 @@ pub async fn up(tera: Tera, skip: bool) {
         .await
         {
             Ok(response) => {
-                // println!("{:?}", response);
+                println!("{:?}", response);
                 match serde_json::from_str(&response.data.unwrap().unwrap()) {
                     Ok(schemas) => schemas,
                     Err(err) => {
@@ -95,6 +95,21 @@ pub async fn up(tera: Tera, skip: bool) {
                 return;
             }
         };
+
+        // Save the schema JSON to a file
+        let schema_json_path = format!("{}/schema.json", db.clone().name);
+        match File::create(&schema_json_path) {
+            Ok(mut file) => {
+                if let Err(err) = file.write_all(
+                    serde_json::to_string_pretty(&schemas).unwrap().as_bytes(),
+                ) {
+                    eprintln!("Error writing schema.json: {:?}", err);
+                }
+            }
+            Err(err) => {
+                eprintln!("Error creating schema.json: {:?}", err);
+            }
+        }
 
         // Sort schemas to prioritize Enums
         schemas.sort_by(|a, _b| {
@@ -129,23 +144,27 @@ pub async fn up(tera: Tera, skip: bool) {
         };
 
         // Render admin.py
-        match tera.render("admin.py.tpl", &context) {
-            Ok(rendered_template) => {
-                let mut output_file = match File::create(format!("{}/admin.py", db.clone().name)) {
-                    Ok(file) => file,
-                    Err(err) => {
-                        eprintln!("Error creating admin.py: {:?}", err);
-                        return;
+        if !Path::new(&format!("{}/admin.py", db.name)).exists() {
+            match tera.render("admin.py.tpl", &context) {
+                Ok(rendered_template) => {
+                    let mut output_file = match File::create(format!("{}/admin.py", db.clone().name)) {
+                        Ok(file) => file,
+                        Err(err) => {
+                            eprintln!("Error creating admin.py: {:?}", err);
+                            return;
+                        }
+                    };
+                    if let Err(err) = output_file.write_all(rendered_template.as_bytes()) {
+                        eprintln!("Error writing to admin.py: {:?}", err);
                     }
-                };
-                if let Err(err) = output_file.write_all(rendered_template.as_bytes()) {
-                    eprintln!("Error writing to admin.py: {:?}", err);
                 }
-            }
-            Err(e) => {
-                eprintln!("Error rendering admin.py template: {:?}", e);
-            }
-        };
+                Err(e) => {
+                    eprintln!("Error rendering admin.py template: {:?}", e);
+                }
+            };
+        } else {
+            println!("admin.py already exists, skipping creation.");
+        }
 
         println!("Finished processing RDBMS database: {}", db.name);
     }
