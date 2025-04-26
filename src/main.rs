@@ -4,6 +4,8 @@ use ginger_shared_rs::{
 };
 use schema_gen_service::apis::configuration::{ApiKey, Configuration};
 use serde_json::Result;
+use types::WatchContent;
+use IAMService::{apis::default_api::identity_validate_api_token, get_configuration};
 use std::path::Path;
 use templates::get_renderer;
 use ui::render_ui;
@@ -154,50 +156,79 @@ async fn watch_for_render() {
         ..Default::default()
     };
 
-
-    
-
-
-
-    let url = format!(
-        "wss://api.gingersociety.org/notification/ws/2?token={}",
-        token
-    );
-
-    match connect_async(url).await {
-        Ok((mut ws_stream, _)) => {
-            println!("Connected to WebSocket for live rendering...");
-
-            let (mut write, mut read) = ws_stream.split();
-
-            let read_task = tokio::spawn(async move {
-                while let Some(msg) = read.next().await {
-                    match msg {
-                        Ok(msg) => {
-                            let content = msg.to_string();
-                            if content.trim() == "RENDER" {
-                                println!("Received RENDER event, regenerating models...");
-                                render::main(&open_api_config, db_config.clone(), db_config_path, true).await
-                            } else {
-                                println!("WS Message: {}", content);
+    let iam_config = get_configuration(Some(token.clone()));
+    match identity_validate_api_token(&iam_config).await {
+        Ok(profile_response) => {
+            println!("{:?}", profile_response);
+            let url = format!(
+                "wss://api.gingersociety.org/notification/ws/workspace_{}?token={}",
+                profile_response.sub, token
+            );
+        
+            match connect_async(url).await {
+                Ok((mut ws_stream, _)) => {
+                    println!("Connected to WebSocket for live rendering...");
+        
+                    let (mut write, mut read) = ws_stream.split();
+        
+                    let read_task = tokio::spawn(async move {
+                        while let Some(msg) = read.next().await {
+                            match msg {
+                                Ok(msg) => {
+                                    let content = msg.to_string();
+                    
+                                    match serde_json::from_str::<WatchContent>(&content) {
+                                        Ok(watch_content) => {
+                                            println!("Received WS Event: {:?}", watch_content);
+                    
+                                            if watch_content.event.trim().eq_ignore_ascii_case("RENDER") {
+                                                if let Some(schema_id) = &db_config.schema.schema_id {
+                                                    if &watch_content.resource_id == schema_id {
+                                                        println!("Received matching RENDER event, regenerating models...");
+                                                        render::main(&open_api_config, db_config.clone(), db_config_path, true).await
+                                                    } else {
+                                                        println!("Resource ID mismatch: expected {}, got {}", schema_id, watch_content.resource_id);
+                                                    }
+                                                } else {
+                                                    println!("No schema_id configured in db_config");
+                                                }
+                                            } else {
+                                                println!("Unhandled event type: {:?}", watch_content.event);
+                                            }
+                                        }
+                                        Err(_) => {
+                                            println!("Non-JSON WS Message: {}", content);
+                                        }
+                                    }
+                                }
+                                Err(e) => eprintln!("Error reading message: {}", e),
                             }
                         }
-                        Err(e) => eprintln!("Error reading message: {}", e),
+                    });
+                    
+                    
+                    
+        
+                    let signal_task = tokio::spawn(async move {
+                        signal::ctrl_c().await.expect("Failed to listen for ctrl_c");
+                        let _ = write.close().await;
+                    });
+        
+                    tokio::select! {
+                        _ = read_task => {}
+                        _ = signal_task => {}
                     }
                 }
-            });
-            
-
-            let signal_task = tokio::spawn(async move {
-                signal::ctrl_c().await.expect("Failed to listen for ctrl_c");
-                let _ = write.close().await;
-            });
-
-            tokio::select! {
-                _ = read_task => {}
-                _ = signal_task => {}
+                Err(e) => eprintln!("WebSocket connection error: {}", e),
             }
         }
-        Err(e) => eprintln!("WebSocket connection error: {}", e),
-    }
+        Err(e) => {
+            println!("{:?}", e);
+        }
+    };
+
+
+
+
+    
 }

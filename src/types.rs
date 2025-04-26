@@ -50,6 +50,13 @@ pub struct Row {
     pub data: FieldData,
 }
 
+#[derive(Deserialize, Debug, Serialize, Clone)]
+pub struct WatchContent{
+    pub resource_id: String,
+    pub event: String
+}
+
+
 #[derive(Deserialize, Debug, Serialize, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum DefaultValue {
