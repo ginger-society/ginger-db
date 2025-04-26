@@ -41,6 +41,16 @@ enum Commands {
     UI,
     AddDB,
     AlterDB,
+    /// Render models from a saved schema.json file
+    RenderFromFile {
+        /// Path to the schema.json file
+        #[arg(short, long)]
+        path: String,
+
+        /// Target directory where models/admin should be generated
+        #[arg(short, long)]
+        out: String,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -123,6 +133,15 @@ async fn main() -> Result<()> {
                     println!("Unable to exit the expected way {:?}", e)
                 }
             };
+        }
+        Commands::RenderFromFile { path, out } => {
+            let tera = get_renderer();
+            let schema_str = std::fs::read_to_string(&path)
+                .unwrap_or_else(|_| panic!("Failed to read schema file at {}", path));
+            let schemas: Vec<types::Schema> =
+                serde_json::from_str(&schema_str).expect("Invalid schema JSON");
+
+            up::generate_python_files_for_db(&out, &schemas, &tera);
         }
     }
 

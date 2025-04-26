@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
@@ -13,6 +13,52 @@ use MetadataService::get_configuration;
 use serde_json::Value;
 
 use crate::types::{Schema, SchemaType};
+
+/// Generates `models.py` and `admin.py` files for a given database.
+pub fn generate_python_files_for_db(db_name: &str, schemas: &[Schema], tera: &Tera) {
+    // Sort schemas to prioritize Enums
+    let mut sorted_schemas = schemas.to_vec();
+    sorted_schemas.sort_by(|a, _b| {
+        if a.schema_type == SchemaType::Enum {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        }
+    });
+
+    let mut context = Context::new();
+    context.insert("schemas", &sorted_schemas);
+
+    // Render models.py
+    let models_path = format!("{}/models.py", db_name);
+    match tera.render("models.py.tpl", &context) {
+        Ok(rendered_template) => {
+            if let Err(err) = fs::write(&models_path, rendered_template) {
+                eprintln!("Error writing to models.py: {:?}", err);
+            }
+        }
+        Err(e) => {
+            eprintln!("Error rendering models.py template: {:?}", e);
+        }
+    }
+
+    // Render admin.py if it doesn't exist
+    let admin_path = format!("{}/admin.py", db_name);
+    if !Path::new(&admin_path).exists() {
+        match tera.render("admin.py.tpl", &context) {
+            Ok(rendered_template) => {
+                if let Err(err) = fs::write(&admin_path, rendered_template) {
+                    eprintln!("Error writing to admin.py: {:?}", err);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error rendering admin.py template: {:?}", e);
+            }
+        }
+    } else {
+        println!("admin.py already exists, skipping creation.");
+    }
+}
 
 pub async fn up(tera: Tera, skip: bool) {
     let home_dir = match dirs::home_dir() {
@@ -70,7 +116,7 @@ pub async fn up(tera: Tera, skip: bool) {
         println!("Processing RDBMS database: {}", db.name);
 
         // Fetch schemas for each database
-        let mut schemas: Vec<Schema> = match metadata_get_dbschema_by_id(
+        let schemas: Vec<Schema> = match metadata_get_dbschema_by_id(
             &open_api_config,
             MetadataGetDbschemaByIdParams {
                 schema_id: db.clone().id.unwrap(),
@@ -111,60 +157,8 @@ pub async fn up(tera: Tera, skip: bool) {
             }
         }
 
-        // Sort schemas to prioritize Enums
-        schemas.sort_by(|a, _b| {
-            if a.schema_type == SchemaType::Enum {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Greater
-            }
-        });
-
-        // Create Tera context and insert schemas
-        let mut context = Context::new();
-        context.insert("schemas", &schemas);
-
-        // Render models.py
-        match tera.render("models.py.tpl", &context) {
-            Ok(rendered_template) => {
-                let mut output_file = match File::create(format!("{}/models.py", db.clone().name)) {
-                    Ok(file) => file,
-                    Err(err) => {
-                        eprintln!("Error creating models.py: {:?}", err);
-                        return;
-                    }
-                };
-                if let Err(err) = output_file.write_all(rendered_template.as_bytes()) {
-                    eprintln!("Error writing to models.py: {:?}", err);
-                }
-            }
-            Err(e) => {
-                eprintln!("Error rendering models.py template: {:?}", e);
-            }
-        };
-
-        // Render admin.py
-        if !Path::new(&format!("{}/admin.py", db.name)).exists() {
-            match tera.render("admin.py.tpl", &context) {
-                Ok(rendered_template) => {
-                    let mut output_file = match File::create(format!("{}/admin.py", db.clone().name)) {
-                        Ok(file) => file,
-                        Err(err) => {
-                            eprintln!("Error creating admin.py: {:?}", err);
-                            return;
-                        }
-                    };
-                    if let Err(err) = output_file.write_all(rendered_template.as_bytes()) {
-                        eprintln!("Error writing to admin.py: {:?}", err);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error rendering admin.py template: {:?}", e);
-                }
-            };
-        } else {
-            println!("admin.py already exists, skipping creation.");
-        }
+        // Generate Python files
+        generate_python_files_for_db(&db.name, &schemas, &tera);
 
         println!("Finished processing RDBMS database: {}", db.name);
     }
