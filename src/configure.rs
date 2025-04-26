@@ -15,14 +15,15 @@ pub fn main() {
         Ok(lang_selected) => {
             let options: Vec<ORM> = match lang_selected {
                 LANG::Python => {
-                    vec![ORM::SQLAlchemy, ORM::DjangoORM]
-                }
+                                vec![ORM::SQLAlchemy, ORM::DjangoORM]
+                            }
                 LANG::Rust => {
-                    vec![ORM::Diesel]
-                }
+                                vec![ORM::Diesel]
+                            }
                 LANG::TS => {
-                    vec![ORM::TypeORM]
-                }
+                                vec![ORM::TypeORM]
+                            }
+                LANG::Shell => todo!(),
             };
 
             let orm_selection: Result<ORM, InquireError> =

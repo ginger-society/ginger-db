@@ -17,6 +17,7 @@ models
 .ginger.tmp
 schema-gen-service_client
 MetadataService_client
+IAMService_client
 bin
 .env
 test-db-space

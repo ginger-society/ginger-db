@@ -2,22 +2,32 @@ lang = "Rust"
 organization_id = "ginger-society"
 dir = "."
 
+[services."@ginger-society/schema-gen-service"]
+prod = "https://db-compose-test-env.gingersociety.org/"
+stage = "https://db-compose-runtime-test-env-675766508318.asia-south1.run.app"
+
 [services."@ginger-society/MetadataService"]
 prod = "https://api.gingersociety.org/metadata"
-stage = "https://api-staging.gingersociety.org/metadata"
 
-[services."@ginger-society/schema-gen-service"]
-stage = "https://db-compose-runtime-test-env-675766508318.asia-south1.run.app"
-prod = "https://db-compose-test-env.gingersociety.org/"
+[services."@ginger-society/IAMService"]
+stage = "https://api.gingersociety.org/iam"
+prod = "https://api.gingersociety.org/iam"
+prod_k8 = "http://iam-service-api-service/iam"
+stage_k8 = "http://iam-service-api-service/iam"
 
 [portals_refs]
-
-[ws_refs."@ginger-society/MetadataService"]
-stage = ""
-prod = ""
 
 [ws_refs."@ginger-society/schema-gen-service"]
 stage = ""
 prod = ""
+
+[ws_refs."@ginger-society/MetadataService"]
+prod = ""
+
+[ws_refs."@ginger-society/IAMService"]
+prod = ""
+stage_k8 = ""
+stage = ""
+prod_k8 = ""
 
 [urls]

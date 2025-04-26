@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-
 use ginger_shared_rs::{
     read_consumer_db_config, read_db_config, utils::get_token_from_file_storage, write_db_config,
 };
@@ -10,6 +9,10 @@ use templates::get_renderer;
 use ui::render_ui;
 use up::up;
 use utils::{add_db, alter_db};
+
+use tokio::signal;
+use tokio_tungstenite::connect_async;
+use futures_util::{stream::StreamExt, SinkExt};
 
 mod configure;
 mod init;
@@ -38,8 +41,11 @@ enum Commands {
         #[arg(short, long)]
         skip: bool,
     },
+    /// Start the terminal UI
     UI,
+    /// Add a new DB to db-compose.toml
     AddDB,
+    /// Alter existing DB setup in db-compose.toml
     AlterDB,
     /// Render models from a saved schema.json file
     RenderFromFile {
@@ -51,6 +57,8 @@ enum Commands {
         #[arg(short, long)]
         out: String,
     },
+    /// Watch WebSocket for render triggers
+    Watch,
 }
 
 #[derive(Parser, Debug)]
@@ -58,7 +66,6 @@ enum Commands {
 #[command(about = "A database composition tool", long_about = None)]
 #[command(version, long_about = None)]
 struct Args {
-    /// name of the command to run
     #[command(subcommand)]
     command: Commands,
 }
@@ -66,7 +73,6 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    // Use globbing
     let tera = get_renderer();
     let db_config_path = Path::new("database.toml");
 
@@ -75,9 +81,7 @@ async fn main() -> Result<()> {
         Commands::Up { skip } => up(tera, skip).await,
         Commands::Configure => configure::main(),
         Commands::Render { skip } => {
-            // Read the configuration using the read_db_config function
             let db_config = read_consumer_db_config(db_config_path).unwrap();
-
             let token = get_token_from_file_storage();
 
             let open_api_config = Configuration {
@@ -88,23 +92,13 @@ async fn main() -> Result<()> {
                 }),
                 ..Default::default()
             };
+
             render::main(&open_api_config, db_config, db_config_path, skip).await
         }
-        Commands::AlterDB => {
-            let mut db_conpose_config = read_db_config("db-compose.toml").unwrap();
-
-            match alter_db(&mut db_conpose_config) {
-                Ok(_) => match write_db_config("db-compose.toml", &db_conpose_config) {
-                    Ok(_) => {
-                        println!("Saved back")
-                    }
-                    Err(e) => {
-                        println!("{:?}", e)
-                    }
-                },
-                Err(e) => {
-                    println!("error: {:?}", e);
-                }
+        Commands::UI => {
+            match render_ui().await {
+                Ok(_) => println!("Exited!"),
+                Err(e) => println!("Unable to exit the expected way: {:?}", e),
             };
         }
         Commands::AddDB => {
@@ -112,30 +106,24 @@ async fn main() -> Result<()> {
 
             match add_db(&mut db_conpose_config) {
                 Ok(_) => match write_db_config("db-compose.toml", &db_conpose_config) {
-                    Ok(_) => {
-                        println!("Saved back")
-                    }
-                    Err(e) => {
-                        println!("{:?}", e)
-                    }
+                    Ok(_) => println!("Saved back"),
+                    Err(e) => println!("{:?}", e),
                 },
-                Err(e) => {
-                    println!("error: {:?}", e);
-                }
+                Err(e) => println!("error: {:?}", e),
             };
         }
-        Commands::UI => {
-            match render_ui().await {
-                Ok(_) => {
-                    println!("Exited!")
-                }
-                Err(e) => {
-                    println!("Unable to exit the expected way {:?}", e)
-                }
+        Commands::AlterDB => {
+            let mut db_conpose_config = read_db_config("db-compose.toml").unwrap();
+
+            match alter_db(&mut db_conpose_config) {
+                Ok(_) => match write_db_config("db-compose.toml", &db_conpose_config) {
+                    Ok(_) => println!("Saved back"),
+                    Err(e) => println!("{:?}", e),
+                },
+                Err(e) => println!("error: {:?}", e),
             };
         }
         Commands::RenderFromFile { path, out } => {
-            let tera = get_renderer();
             let schema_str = std::fs::read_to_string(&path)
                 .unwrap_or_else(|_| panic!("Failed to read schema file at {}", path));
             let schemas: Vec<types::Schema> =
@@ -143,7 +131,73 @@ async fn main() -> Result<()> {
 
             up::generate_python_files_for_db(&out, &schemas, &tera);
         }
+        Commands::Watch => {
+            watch_for_render().await;
+        }
     }
 
     Ok(())
+}
+
+async fn watch_for_render() {
+    let token = get_token_from_file_storage();
+    let tera = get_renderer();
+    let db_config_path = Path::new("database.toml");
+    let db_config = read_consumer_db_config(db_config_path).unwrap();
+
+    let open_api_config = Configuration {
+        base_path: db_config.schema.url.clone(),
+        api_key: Some(ApiKey {
+            key: token.clone(),
+            prefix: Some("".to_string()),
+        }),
+        ..Default::default()
+    };
+
+
+    
+
+
+
+    let url = format!(
+        "wss://api.gingersociety.org/notification/ws/2?token={}",
+        token
+    );
+
+    match connect_async(url).await {
+        Ok((mut ws_stream, _)) => {
+            println!("Connected to WebSocket for live rendering...");
+
+            let (mut write, mut read) = ws_stream.split();
+
+            let read_task = tokio::spawn(async move {
+                while let Some(msg) = read.next().await {
+                    match msg {
+                        Ok(msg) => {
+                            let content = msg.to_string();
+                            if content.trim() == "RENDER" {
+                                println!("Received RENDER event, regenerating models...");
+                                render::main(&open_api_config, db_config.clone(), db_config_path, true).await
+                            } else {
+                                println!("WS Message: {}", content);
+                            }
+                        }
+                        Err(e) => eprintln!("Error reading message: {}", e),
+                    }
+                }
+            });
+            
+
+            let signal_task = tokio::spawn(async move {
+                signal::ctrl_c().await.expect("Failed to listen for ctrl_c");
+                let _ = write.close().await;
+            });
+
+            tokio::select! {
+                _ = read_task => {}
+                _ = signal_task => {}
+            }
+        }
+        Err(e) => eprintln!("WebSocket connection error: {}", e),
+    }
 }
