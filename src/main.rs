@@ -143,86 +143,115 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+
 async fn watch_for_render(
     open_api_config: &Configuration,
     db_config: ginger_shared_rs::ConsumerDBConfig,
     db_config_path: &Path,
-    token: String
+    token: String,
 ) {
+    use std::{time::Duration, sync::Arc};
+    use tokio::time::sleep;
+
     let tera = get_renderer();
+    let db_config_path_buf = db_config_path.to_path_buf();
+    let open_api_config = Arc::new(open_api_config.clone());
+    let db_config = Arc::new(db_config.clone());
 
+    // 🚀 Initial render before starting to watch
+    println!("Performing initial render...");
+    render::main(&open_api_config, (*db_config).clone(), &db_config_path_buf, true).await;
+
+    // Validate token and extract sub
     let iam_config = get_configuration(Some(token.clone()));
+    let profile_response = match identity_validate_api_token(&iam_config).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Token validation failed: {:?}", e);
+            return;
+        }
+    };
 
-    match identity_validate_api_token(&iam_config).await {
-        Ok(profile_response) => {
-            println!("{:?}", profile_response);
+    let ws_url = format!(
+        "wss://api.gingersociety.org/notification/ws/workspace_{}?token={}",
+        profile_response.sub, token
+    );
 
-            let url = format!(
-                "wss://api.gingersociety.org/notification/ws/workspace_{}?token={}",
-                profile_response.sub, token
-            );
+    println!("Listening for live updates at: {}", ws_url);
 
-            match connect_async(url).await {
-                Ok((mut ws_stream, _)) => {
-                    println!("Connected to WebSocket for live rendering...");
+    let mut attempt = 0;
 
-                    let (mut write, mut read) = ws_stream.split();
+    loop {
+        match connect_async(&ws_url).await {
+            Ok((ws_stream, _)) => {
+                println!("✅ Connected to WebSocket");
 
-                    // 🚀 Clone config + db_config because they'll go inside the task
-                    let open_api_config_clone = open_api_config.clone();
-                    let db_config_clone = db_config.clone();
-                    let db_config_path = db_config_path.to_path_buf();
+                let (mut write, mut read) = ws_stream.split();
+                let open_api_config = open_api_config.clone();
+                let db_config = db_config.clone();
+                let db_config_path = db_config_path_buf.clone();
 
-                    let read_task = tokio::spawn(async move {
-                        while let Some(msg) = read.next().await {
-                            match msg {
-                                Ok(msg) => {
-                                    let content = msg.to_string();
+                // Tasks to handle incoming messages and CTRL+C
+                let read_task = tokio::spawn(async move {
+                    while let Some(msg) = read.next().await {
+                        match msg {
+                            Ok(msg) => {
+                                let content = msg.to_string();
 
-                                    match serde_json::from_str::<WatchContent>(&content) {
-                                        Ok(watch_content) => {
-                                            println!("Received WS Event: {:?}", watch_content);
+                                match serde_json::from_str::<WatchContent>(&content) {
+                                    Ok(watch_content) => {
+                                        println!("📨 WS Event: {:?}", watch_content);
 
-                                            if watch_content.event.trim().eq_ignore_ascii_case("RENDER") {
-                                                if let Some(schema_id) = &db_config_clone.schema.schema_id {
-                                                    if &watch_content.resource_id == schema_id {
-                                                        println!("Received matching RENDER event, regenerating models...");
-                                                        render::main(&open_api_config_clone, db_config_clone.clone(), &db_config_path, true).await;
-                                                    } else {
-                                                        println!("Resource ID mismatch: expected {}, got {}, Hence Ignoring", schema_id, watch_content.resource_id);
-                                                    }
+                                        if watch_content.event.trim().eq_ignore_ascii_case("RENDER") {
+                                            if let Some(schema_id) = &db_config.schema.schema_id {
+                                                if &watch_content.resource_id == schema_id {
+                                                    println!("🔁 Triggering render...");
+                                                    render::main(&open_api_config, (*db_config).clone(), &db_config_path, true).await;
                                                 } else {
-                                                    println!("No schema_id configured in db_config");
+                                                    println!("❌ Resource ID mismatch: expected {}, got {}", schema_id, watch_content.resource_id);
                                                 }
                                             } else {
-                                                println!("Unhandled event type: {:?}", watch_content.event);
+                                                println!("⚠️ schema_id missing in db_config");
                                             }
-                                        }
-                                        Err(_) => {
-                                            println!("Non-JSON WS Message: {}", content);
+                                        } else {
+                                            println!("⚠️ Unhandled event type: {}", watch_content.event);
                                         }
                                     }
+                                    Err(_) => println!("💬 Non-JSON WS message: {}", content),
                                 }
-                                Err(e) => eprintln!("Error reading message: {}", e),
+                            }
+                            Err(e) => {
+                                eprintln!("❌ WebSocket read error: {}", e);
+                                break;
                             }
                         }
-                    });
+                    }
+                });
 
-                    let signal_task = tokio::spawn(async move {
-                        signal::ctrl_c().await.expect("Failed to listen for ctrl_c");
-                        let _ = write.close().await;
-                    });
+                let signal_task = tokio::spawn(async move {
+                    signal::ctrl_c().await.expect("Failed to listen for ctrl_c");
+                    let _ = write.close().await;
+                });
 
-                    tokio::select! {
-                        _ = read_task => {}
-                        _ = signal_task => {}
+                tokio::select! {
+                    _ = read_task => println!("🔌 WebSocket stream ended"),
+                    _ = signal_task => {
+                        println!("🛑 Shutting down on CTRL+C");
+                        return;
                     }
                 }
-                Err(e) => eprintln!("WebSocket connection error: {}", e),
+
+                // If we reach here, connection dropped; try to reconnect
+                attempt = 0; // reset retry backoff on a successful session
+                println!("🔄 Reconnecting...");
             }
-        }
-        Err(e) => {
-            println!("{:?}", e);
+            Err(e) => {
+                attempt += 1;
+                let delay = Duration::from_secs((2_u64).pow(attempt.min(5))); // exponential backoff up to 32s
+                eprintln!("❌ Failed to connect (attempt {}): {}, retrying in {:?}...", attempt, e, delay);
+                sleep(delay).await;
+            }
         }
     }
 }
