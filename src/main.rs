@@ -42,6 +42,10 @@ enum Commands {
         /// Skip the rendering of certain files
         #[arg(short, long)]
         skip: bool,
+
+        /// Watch for render triggers via WebSocket
+        #[arg(long)]
+        watch: bool,
     },
     /// Start the terminal UI
     UI,
@@ -59,8 +63,6 @@ enum Commands {
         #[arg(short, long)]
         out: String,
     },
-    /// Watch WebSocket for render triggers
-    Watch,
 }
 
 #[derive(Parser, Debug)]
@@ -82,20 +84,24 @@ async fn main() -> Result<()> {
         Commands::Init => init::main(tera).await,
         Commands::Up { skip } => up(tera, skip).await,
         Commands::Configure => configure::main(),
-        Commands::Render { skip } => {
+        Commands::Render { skip, watch } => {
             let db_config = read_consumer_db_config(db_config_path).unwrap();
             let token = get_token_from_file_storage();
 
             let open_api_config = Configuration {
                 base_path: db_config.schema.url.clone(),
                 api_key: Some(ApiKey {
-                    key: token,
+                    key: token.clone(),
                     prefix: Some("".to_string()),
                 }),
                 ..Default::default()
             };
 
-            render::main(&open_api_config, db_config, db_config_path, skip).await
+            if watch {
+                watch_for_render(&open_api_config, db_config, db_config_path, token).await;
+            } else {
+                render::main(&open_api_config, db_config, db_config_path, skip).await;
+            }
         }
         Commands::UI => {
             match render_ui().await {
@@ -133,61 +139,57 @@ async fn main() -> Result<()> {
 
             up::generate_python_files_for_db(&out, &schemas, &tera);
         }
-        Commands::Watch => {
-            watch_for_render().await;
-        }
     }
 
     Ok(())
 }
-
-async fn watch_for_render() {
-    let token = get_token_from_file_storage();
+async fn watch_for_render(
+    open_api_config: &Configuration,
+    db_config: ginger_shared_rs::ConsumerDBConfig,
+    db_config_path: &Path,
+    token: String
+) {
     let tera = get_renderer();
-    let db_config_path = Path::new("database.toml");
-    let db_config = read_consumer_db_config(db_config_path).unwrap();
-
-    let open_api_config = Configuration {
-        base_path: db_config.schema.url.clone(),
-        api_key: Some(ApiKey {
-            key: token.clone(),
-            prefix: Some("".to_string()),
-        }),
-        ..Default::default()
-    };
 
     let iam_config = get_configuration(Some(token.clone()));
+
     match identity_validate_api_token(&iam_config).await {
         Ok(profile_response) => {
             println!("{:?}", profile_response);
+
             let url = format!(
                 "wss://api.gingersociety.org/notification/ws/workspace_{}?token={}",
                 profile_response.sub, token
             );
-        
+
             match connect_async(url).await {
                 Ok((mut ws_stream, _)) => {
                     println!("Connected to WebSocket for live rendering...");
-        
+
                     let (mut write, mut read) = ws_stream.split();
-        
+
+                    // 🚀 Clone config + db_config because they'll go inside the task
+                    let open_api_config_clone = open_api_config.clone();
+                    let db_config_clone = db_config.clone();
+                    let db_config_path = db_config_path.to_path_buf();
+
                     let read_task = tokio::spawn(async move {
                         while let Some(msg) = read.next().await {
                             match msg {
                                 Ok(msg) => {
                                     let content = msg.to_string();
-                    
+
                                     match serde_json::from_str::<WatchContent>(&content) {
                                         Ok(watch_content) => {
                                             println!("Received WS Event: {:?}", watch_content);
-                    
+
                                             if watch_content.event.trim().eq_ignore_ascii_case("RENDER") {
-                                                if let Some(schema_id) = &db_config.schema.schema_id {
+                                                if let Some(schema_id) = &db_config_clone.schema.schema_id {
                                                     if &watch_content.resource_id == schema_id {
                                                         println!("Received matching RENDER event, regenerating models...");
-                                                        render::main(&open_api_config, db_config.clone(), db_config_path, true).await
+                                                        render::main(&open_api_config_clone, db_config_clone.clone(), &db_config_path, true).await;
                                                     } else {
-                                                        println!("Resource ID mismatch: expected {}, got {}", schema_id, watch_content.resource_id);
+                                                        println!("Resource ID mismatch: expected {}, got {}, Hence Ignoring", schema_id, watch_content.resource_id);
                                                     }
                                                 } else {
                                                     println!("No schema_id configured in db_config");
@@ -205,15 +207,12 @@ async fn watch_for_render() {
                             }
                         }
                     });
-                    
-                    
-                    
-        
+
                     let signal_task = tokio::spawn(async move {
                         signal::ctrl_c().await.expect("Failed to listen for ctrl_c");
                         let _ = write.close().await;
                     });
-        
+
                     tokio::select! {
                         _ = read_task => {}
                         _ = signal_task => {}
@@ -225,10 +224,5 @@ async fn watch_for_render() {
         Err(e) => {
             println!("{:?}", e);
         }
-    };
-
-
-
-
-    
+    }
 }
