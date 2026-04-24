@@ -1,7 +1,11 @@
 use crossterm::{
+    cursor::MoveTo,
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen, Clear , ClearType , ScrollUp},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -31,6 +35,18 @@ enum Focus {
     Logs,
 }
 
+/* ---------------- HELP ---------------- */
+
+fn help_text(focus: &Focus) -> String {
+    match focus {
+        Focus::Services => "↑/↓ select | ←/→ switch | s shell | q quit",
+        Focus::Logs => "PgUp start | PgDn follow | ↑/↓ scroll | j/k scroll | g/G jump | ←/→ switch | s shell",
+    }
+    .to_string()
+}
+
+/* ---------------- MAIN ---------------- */
+
 pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -45,10 +61,11 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(Mutex::new(HashMap::new()));
     let selected_idx = Arc::new(Mutex::new(0));
 
-    // ---- services updater ----
+    /* -------- SERVICES -------- */
     {
         let services = services.clone();
         let project_name = project_name.clone();
+
         tokio::spawn(async move {
             loop {
                 if let Ok(updated) = get_docker_services(&project_name).await {
@@ -59,7 +76,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
-    // ---- logs updater ----
+    /* -------- LOGS -------- */
     {
         let services = services.clone();
         let logs = service_logs.clone();
@@ -84,65 +101,70 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut focus = Focus::Services;
-
     let mut auto_scroll = true;
     let mut scroll_offset: u16 = 0;
+
+    /* ================= LOOP ================= */
 
     loop {
         let services_list = services.lock().unwrap().clone();
         let current_idx = *selected_idx.lock().unwrap();
 
         terminal.draw(|f| {
+            let root = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),
+                    Constraint::Length(2),
+                ])
+                .split(f.size());
+
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([
                     Constraint::Percentage(30),
                     Constraint::Percentage(70),
                 ])
-                .split(f.size());
+                .split(root[0]);
 
-            // ---- SERVICES PANEL ----
+            /* -------- SERVICES -------- */
+
             let items: Vec<ListItem> = services_list
                 .iter()
                 .enumerate()
-                .map(|(i, service)| {
-                    let status_color = match service.status.as_str() {
-                        "running" => Color::Green,
-                        "exited" => Color::Red,
-                        "paused" => Color::Yellow,
-                        "restarting" => Color::Cyan,
-                        _ => Color::Gray,
-                    };
-
-                    let mut style = Style::default().fg(status_color);
+                .map(|(i, s)| {
+                    let mut style = Style::default().fg(Color::Gray);
 
                     if i == current_idx {
                         style = style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
                     }
 
-                    ListItem::new(format!("● {} [{}]", service.name, service.status))
-                        .style(style)
+                    ListItem::new(format!("● {} [{}]", s.name, s.status)).style(style)
                 })
                 .collect();
 
             let services_block = Block::default()
                 .borders(Borders::ALL)
-                .title("Services")
+                .title(format!(
+                    "Services {}",
+                    if focus == Focus::Services { "[ACTIVE]" } else { "" }
+                ))
                 .border_style(if focus == Focus::Services {
                     Style::default().fg(Color::Yellow)
                 } else {
                     Style::default()
                 });
 
-            let services_widget = List::new(items).block(services_block);
-            f.render_widget(services_widget, chunks[0]);
+            f.render_widget(List::new(items).block(services_block), chunks[0]);
 
-            // ---- LOG PANEL ----
+            /* -------- LOGS -------- */
+
             let logs_block = Block::default()
                 .borders(Borders::ALL)
                 .title(format!(
-                    "Logs {}",
-                    if auto_scroll { "[Auto Scrolling]" } else { "[Manual Scroll]" }
+                    "Logs {} {}",
+                    if focus == Focus::Logs { "[ACTIVE]" } else { "" },
+                    if auto_scroll { "[FOLLOW]" } else { "[PAUSED]" }
                 ))
                 .border_style(if focus == Focus::Logs {
                     Style::default().fg(Color::Yellow)
@@ -168,64 +190,77 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     scroll_offset = scroll_offset.min(max_scroll);
 
-                    // 👇 NEW: auto-enable follow if user reaches bottom
                     if scroll_offset >= max_scroll {
                         auto_scroll = true;
                     }
                 }
 
-                let log_widget = Paragraph::new(log_text)
-                    .block(logs_block)
-                    .wrap(Wrap { trim: false })
-                    .scroll((scroll_offset, 0));
-
-                f.render_widget(log_widget, chunks[1]);
+                f.render_widget(
+                    Paragraph::new(log_text)
+                        .block(logs_block)
+                        .wrap(Wrap { trim: false })
+                        .scroll((scroll_offset, 0)),
+                    chunks[1],
+                );
             } else {
-                let empty = Paragraph::new("No services").block(logs_block);
-                f.render_widget(empty, chunks[1]);
+                f.render_widget(
+                    Paragraph::new("No services").block(logs_block),
+                    chunks[1],
+                );
             }
+
+            /* -------- HELP BAR -------- */
+
+            let help = Paragraph::new(help_text(&focus))
+                .style(Style::default().fg(Color::DarkGray))
+                .block(Block::default().borders(Borders::TOP));
+
+            f.render_widget(help, root[1]);
         })?;
 
-        // ---- INPUT ----
+        /* ================= INPUT ================= */
+
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                let cmd = key.modifiers.contains(KeyModifiers::SUPER);
-
                 match key.code {
                     KeyCode::Char('q') => break,
 
-                    // switch panels
                     KeyCode::Left => focus = Focus::Services,
                     KeyCode::Right => focus = Focus::Logs,
+
                     KeyCode::Char('s') => {
-                        let services_list = services.lock().unwrap().clone();
+                        let list = services.lock().unwrap().clone();
                         let idx = *selected_idx.lock().unwrap();
 
-                        if idx < services_list.len() {
-                            let container_id = services_list[idx].container_id.clone();
+                        if let Some(service) = list.get(idx) {
+                            let container_id = service.container_id.clone();
 
                             if !container_id.is_empty() {
-                                // ---- EXIT TUI ----
+                                /* -------- CLEAN EXIT -------- */
                                 disable_raw_mode()?;
-                                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+                                execute!(
+                                    terminal.backend_mut(),
+                                    LeaveAlternateScreen,
+                                    Clear(ClearType::All),
+                                    MoveTo(0, 0)
+                                )?;
                                 terminal.show_cursor()?;
 
-                                // ---- CLEAN TERMINAL BEFORE SHELL ----
-                                let mut stdout = io::stdout();
-                                execute!(
-                                    stdout,
-                                    Clear(ClearType::All),
-                                    crossterm::cursor::MoveTo(0, 0),
-                                )?;
-
+                                // HARD RESET (fixes "starts from bottom")
+                                println!("\x1b[2J\x1b[H");
                                 println!("\nEntering shell: {}\n", container_id);
 
-                                // ---- RUN SHELL ----
+                                /* -------- SHELL -------- */
                                 let _ = open_shell(&container_id).await;
 
-                                // ---- RESTORE TUI ----
+                                /* -------- RESTORE -------- */
                                 enable_raw_mode()?;
-                                execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+                                execute!(
+                                    terminal.backend_mut(),
+                                    EnterAlternateScreen,
+                                    Clear(ClearType::All),
+                                    MoveTo(0, 0)
+                                )?;
                                 terminal.hide_cursor()?;
 
                                 terminal.clear()?;
@@ -235,7 +270,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     _ => {
-                        // ---- SERVICES NAV ----
+                        /* -------- SERVICES -------- */
                         if focus == Focus::Services {
                             match key.code {
                                 KeyCode::Down => {
@@ -243,65 +278,41 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                                     if len > 0 {
                                         let mut idx = selected_idx.lock().unwrap();
                                         *idx = (*idx + 1).min(len - 1);
-                                        auto_scroll = true;
-                                        scroll_offset = 0;
                                     }
                                 }
                                 KeyCode::Up => {
                                     let mut idx = selected_idx.lock().unwrap();
                                     *idx = idx.saturating_sub(1);
-                                    auto_scroll = true;
-                                    scroll_offset = 0;
                                 }
                                 _ => {}
                             }
                         }
 
-                        // ---- LOG NAV ----
+                        /* -------- LOGS -------- */
                         if focus == Focus::Logs {
                             match key.code {
-                                // PageUp → START
                                 KeyCode::PageUp => {
                                     auto_scroll = false;
                                     scroll_offset = 0;
                                 }
-
-                                // PageDown → END (follow mode)
                                 KeyCode::PageDown => {
                                     auto_scroll = true;
                                 }
-
-                                // fine scroll
-                                KeyCode::Down => {
+                                KeyCode::Down | KeyCode::Char('j') => {
                                     auto_scroll = false;
                                     scroll_offset += 1;
                                 }
-
-                                KeyCode::Up => {
+                                KeyCode::Up | KeyCode::Char('k') => {
                                     auto_scroll = false;
                                     scroll_offset = scroll_offset.saturating_sub(1);
                                 }
-
-                                // vim-style (optional but nice)
-                                KeyCode::Char('j') => {
-                                    auto_scroll = false;
-                                    scroll_offset += 1;
-                                }
-
-                                KeyCode::Char('k') => {
-                                    auto_scroll = false;
-                                    scroll_offset = scroll_offset.saturating_sub(1);
-                                }
-
                                 KeyCode::Char('g') => {
                                     auto_scroll = false;
                                     scroll_offset = 0;
                                 }
-
                                 KeyCode::Char('G') => {
                                     auto_scroll = true;
                                 }
-
                                 _ => {}
                             }
                         }
@@ -311,12 +322,15 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    /* -------- CLEANUP -------- */
+
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     Ok(())
 }
+
 async fn get_compose_project_name() -> Result<String, Box<dyn std::error::Error>> {
     let output = tokio::process::Command::new("docker-compose")
         .arg("config")
