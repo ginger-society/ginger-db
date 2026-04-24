@@ -1,5 +1,5 @@
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -25,68 +25,73 @@ struct Service {
     status: String,
 }
 
+#[derive(PartialEq)]
+enum Focus {
+    Services,
+    Logs,
+}
+
 pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
-    // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Get Docker project name from docker-compose
     let project_name = get_compose_project_name().await?;
-    
-    // Store services and their logs
+
     let services = Arc::new(Mutex::new(Vec::<Service>::new()));
-    let service_logs: Arc<Mutex<HashMap<String, Vec<String>>>> = 
+    let service_logs: Arc<Mutex<HashMap<String, Vec<String>>>> =
         Arc::new(Mutex::new(HashMap::new()));
     let selected_idx = Arc::new(Mutex::new(0));
 
-    // Spawn task to update services list
-    let services_clone = Arc::clone(&services);
-    let project_name_clone = project_name.clone();
-    tokio::spawn(async move {
-        loop {
-            if let Ok(updated_services) = get_docker_services(&project_name_clone).await {
-                let mut services_lock = services_clone.lock().unwrap();
-                *services_lock = updated_services;
-            }
-            sleep(Duration::from_secs(2)).await;
-        }
-    });
-
-    // Spawn task to collect logs for each service
-    let services_clone = Arc::clone(&services);
-    let logs_clone = Arc::clone(&service_logs);
-    tokio::spawn(async move {
-        loop {
-            let services_list = services_clone.lock().unwrap().clone();
-            for service in services_list {
-                if !service.container_id.is_empty() {
-                    let logs = logs_clone.clone();
-                    let container_id = service.container_id.clone();
-                    let service_name = service.name.clone();
-                    
-                    tokio::spawn(async move {
-                        if let Ok(new_logs) = get_container_logs(&container_id).await {
-                            let mut logs_lock = logs.lock().unwrap();
-                            logs_lock.insert(service_name, new_logs);
-                        }
-                    });
+    // ---- services updater ----
+    {
+        let services = services.clone();
+        let project_name = project_name.clone();
+        tokio::spawn(async move {
+            loop {
+                if let Ok(updated) = get_docker_services(&project_name).await {
+                    *services.lock().unwrap() = updated;
                 }
+                sleep(Duration::from_secs(2)).await;
             }
-            sleep(Duration::from_secs(1)).await;
-        }
-    });
+        });
+    }
+
+    // ---- logs updater ----
+    {
+        let services = services.clone();
+        let logs = service_logs.clone();
+
+        tokio::spawn(async move {
+            loop {
+                let list = services.lock().unwrap().clone();
+
+                for svc in list {
+                    if svc.container_id.is_empty() {
+                        continue;
+                    }
+
+                    if let Ok(new_logs) = get_container_logs(&svc.container_id).await {
+                        logs.lock().unwrap().insert(svc.name.clone(), new_logs);
+                    }
+                }
+
+                sleep(Duration::from_secs(1)).await;
+            }
+        });
+    }
+
+    let mut focus = Focus::Services;
 
     let mut auto_scroll = true;
     let mut scroll_offset: u16 = 0;
 
-    // Event loop
     loop {
         let services_list = services.lock().unwrap().clone();
         let current_idx = *selected_idx.lock().unwrap();
-        
+
         terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
@@ -96,7 +101,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 ])
                 .split(f.size());
 
-            // Left panel - Services
+            // ---- SERVICES PANEL ----
             let items: Vec<ListItem> = services_list
                 .iter()
                 .enumerate()
@@ -108,102 +113,166 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         "restarting" => Color::Cyan,
                         _ => Color::Gray,
                     };
-                    
-                    let content = format!("● {} [{}]", service.name, service.status);
+
                     let mut style = Style::default().fg(status_color);
-                    
+
                     if i == current_idx {
                         style = style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
                     }
-                    
-                    ListItem::new(content).style(style)
+
+                    ListItem::new(format!("● {} [{}]", service.name, service.status))
+                        .style(style)
                 })
                 .collect();
 
-            let title = format!("Services ({}) - ↑/↓ select, q quit", services_list.len());
-            let services_widget = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(title));
+            let services_block = Block::default()
+                .borders(Borders::ALL)
+                .title("Services")
+                .border_style(if focus == Focus::Services {
+                    Style::default().fg(Color::Yellow)
+                } else {
+                    Style::default()
+                });
 
+            let services_widget = List::new(items).block(services_block);
             f.render_widget(services_widget, chunks[0]);
 
-            // Right panel - Logs
+            // ---- LOG PANEL ----
+            let logs_block = Block::default()
+                .borders(Borders::ALL)
+                .title("Logs")
+                .border_style(if focus == Focus::Logs {
+                    Style::default().fg(Color::Yellow)
+                } else {
+                    Style::default()
+                });
+
             if !services_list.is_empty() && current_idx < services_list.len() {
                 let logs = service_logs.lock().unwrap();
-                let selected_service = &services_list[current_idx].name;
-                
+                let selected = &services_list[current_idx].name;
+
                 let log_text = logs
-                    .get(selected_service)
-                    .map(|lines| lines.join("\n"))
+                    .get(selected)
+                    .map(|l| l.join("\n"))
                     .unwrap_or_else(|| "Loading logs...".to_string());
 
+                let num_lines = log_text.lines().count() as u16;
+                let height = chunks[1].height.saturating_sub(2);
+                let max_scroll = num_lines.saturating_sub(height);
+
                 if auto_scroll {
-                    let num_lines = log_text.lines().count() as u16;
-                    let visible_height = chunks[1].height.saturating_sub(2);
-                    scroll_offset = num_lines.saturating_sub(visible_height);
+                    scroll_offset = max_scroll;
+                } else {
+                    scroll_offset = scroll_offset.min(max_scroll);
                 }
 
                 let log_widget = Paragraph::new(log_text)
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .title(format!("Logs: {} (PgUp/PgDn/End)", selected_service)),
-                    )
+                    .block(logs_block)
                     .wrap(Wrap { trim: false })
                     .scroll((scroll_offset, 0));
 
                 f.render_widget(log_widget, chunks[1]);
             } else {
-                let empty = Paragraph::new("No services found")
-                    .block(Block::default().borders(Borders::ALL).title("Logs"));
+                let empty = Paragraph::new("No services").block(logs_block);
                 f.render_widget(empty, chunks[1]);
             }
         })?;
 
-        // Handle input
+        // ---- INPUT ----
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
+                let cmd = key.modifiers.contains(KeyModifiers::SUPER);
+
                 match key.code {
                     KeyCode::Char('q') => break,
-                    KeyCode::Down => {
-                        let services_len = services.lock().unwrap().len();
-                        if services_len > 0 {
-                            let mut idx = selected_idx.lock().unwrap();
-                            *idx = (*idx + 1).min(services_len - 1);
-                            auto_scroll = true;
-                            scroll_offset = 0;
+
+                    // switch panels
+                    KeyCode::Left => focus = Focus::Services,
+                    KeyCode::Right => focus = Focus::Logs,
+
+                    _ => {
+                        // ---- SERVICES NAV ----
+                        if focus == Focus::Services {
+                            match key.code {
+                                KeyCode::Down => {
+                                    let len = services.lock().unwrap().len();
+                                    if len > 0 {
+                                        let mut idx = selected_idx.lock().unwrap();
+                                        *idx = (*idx + 1).min(len - 1);
+                                        auto_scroll = true;
+                                        scroll_offset = 0;
+                                    }
+                                }
+                                KeyCode::Up => {
+                                    let mut idx = selected_idx.lock().unwrap();
+                                    *idx = idx.saturating_sub(1);
+                                    auto_scroll = true;
+                                    scroll_offset = 0;
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        // ---- LOG NAV ----
+                        if focus == Focus::Logs {
+                            match key.code {
+                                // PageUp → START
+                                KeyCode::PageUp => {
+                                    auto_scroll = false;
+                                    scroll_offset = 0;
+                                }
+
+                                // PageDown → END (follow mode)
+                                KeyCode::PageDown => {
+                                    auto_scroll = true;
+                                }
+
+                                // fine scroll
+                                KeyCode::Down => {
+                                    auto_scroll = false;
+                                    scroll_offset += 1;
+                                }
+
+                                KeyCode::Up => {
+                                    auto_scroll = false;
+                                    scroll_offset = scroll_offset.saturating_sub(1);
+                                }
+
+                                // vim-style (optional but nice)
+                                KeyCode::Char('j') => {
+                                    auto_scroll = false;
+                                    scroll_offset += 1;
+                                }
+
+                                KeyCode::Char('k') => {
+                                    auto_scroll = false;
+                                    scroll_offset = scroll_offset.saturating_sub(1);
+                                }
+
+                                KeyCode::Char('g') => {
+                                    auto_scroll = false;
+                                    scroll_offset = 0;
+                                }
+
+                                KeyCode::Char('G') => {
+                                    auto_scroll = true;
+                                }
+
+                                _ => {}
+                            }
                         }
                     }
-                    KeyCode::Up => {
-                        let mut idx = selected_idx.lock().unwrap();
-                        *idx = idx.saturating_sub(1);
-                        auto_scroll = true;
-                        scroll_offset = 0;
-                    }
-                    KeyCode::PageDown => {
-                        auto_scroll = false;
-                        scroll_offset = scroll_offset.saturating_add(10);
-                    }
-                    KeyCode::PageUp => {
-                        auto_scroll = false;
-                        scroll_offset = scroll_offset.saturating_sub(10);
-                    }
-                    KeyCode::End => {
-                        auto_scroll = true;
-                    }
-                    _ => {}
                 }
             }
         }
     }
 
-    // Cleanup
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     Ok(())
 }
-
 async fn get_compose_project_name() -> Result<String, Box<dyn std::error::Error>> {
     let output = tokio::process::Command::new("docker-compose")
         .arg("config")
