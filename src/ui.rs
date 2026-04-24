@@ -140,7 +140,10 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
             // ---- LOG PANEL ----
             let logs_block = Block::default()
                 .borders(Borders::ALL)
-                .title("Logs")
+                .title(format!(
+                    "Logs {}",
+                    if auto_scroll { "[Auto Scrolling]" } else { "[Manual Scroll]" }
+                ))
                 .border_style(if focus == Focus::Logs {
                     Style::default().fg(Color::Yellow)
                 } else {
@@ -164,6 +167,11 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     scroll_offset = max_scroll;
                 } else {
                     scroll_offset = scroll_offset.min(max_scroll);
+
+                    // 👇 NEW: auto-enable follow if user reaches bottom
+                    if scroll_offset >= max_scroll {
+                        auto_scroll = true;
+                    }
                 }
 
                 let log_widget = Paragraph::new(log_text)
