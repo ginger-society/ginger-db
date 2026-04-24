@@ -1,7 +1,7 @@
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen, Clear , ClearType , ScrollUp},
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -205,12 +205,20 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                             let container_id = services_list[idx].container_id.clone();
 
                             if !container_id.is_empty() {
-                                // ---- EXIT TUI CLEANLY ----
+                                // ---- EXIT TUI ----
                                 disable_raw_mode()?;
                                 execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
                                 terminal.show_cursor()?;
 
-                                println!("\nOpening shell for container: {}\n", container_id);
+                                // ---- CLEAN TERMINAL BEFORE SHELL ----
+                                let mut stdout = io::stdout();
+                                execute!(
+                                    stdout,
+                                    Clear(ClearType::All),
+                                    crossterm::cursor::MoveTo(0, 0),
+                                )?;
+
+                                println!("\nEntering shell: {}\n", container_id);
 
                                 // ---- RUN SHELL ----
                                 let _ = open_shell(&container_id).await;
@@ -220,7 +228,6 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                                 execute!(terminal.backend_mut(), EnterAlternateScreen)?;
                                 terminal.hide_cursor()?;
 
-                                // 👇 CRITICAL FIXES
                                 terminal.clear()?;
                                 terminal.draw(|_| {})?;
                             }
