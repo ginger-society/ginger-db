@@ -197,6 +197,35 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     // switch panels
                     KeyCode::Left => focus = Focus::Services,
                     KeyCode::Right => focus = Focus::Logs,
+                    KeyCode::Char('s') => {
+                        let services_list = services.lock().unwrap().clone();
+                        let idx = *selected_idx.lock().unwrap();
+
+                        if idx < services_list.len() {
+                            let container_id = services_list[idx].container_id.clone();
+
+                            if !container_id.is_empty() {
+                                // ---- EXIT TUI CLEANLY ----
+                                disable_raw_mode()?;
+                                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+                                terminal.show_cursor()?;
+
+                                println!("\nOpening shell for container: {}\n", container_id);
+
+                                // ---- RUN SHELL ----
+                                let _ = open_shell(&container_id).await;
+
+                                // ---- RESTORE TUI ----
+                                enable_raw_mode()?;
+                                execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+                                terminal.hide_cursor()?;
+
+                                // 👇 CRITICAL FIXES
+                                terminal.clear()?;
+                                terminal.draw(|_| {})?;
+                            }
+                        }
+                    }
 
                     _ => {
                         // ---- SERVICES NAV ----
@@ -376,4 +405,35 @@ async fn get_container_logs(container_id: &str) -> Result<Vec<String>, Box<dyn s
     }
     
     Ok(lines)
+}
+
+async fn open_shell(container_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use tokio::process::Command;
+    use std::process::Stdio;
+
+    // Try bash first, fallback to sh
+    let status = Command::new("docker")
+        .args(["exec", "-it", container_id, "bash"])
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .await;
+
+    if let Ok(s) = status {
+        if s.success() {
+            return Ok(());
+        }
+    }
+
+    // fallback to sh
+    Command::new("docker")
+        .args(["exec", "-it", container_id, "sh"])
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .await?;
+
+    Ok(())
 }
