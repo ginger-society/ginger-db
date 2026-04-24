@@ -11,7 +11,7 @@ MetadataService = {path = "./MetadataService_client"}
 clap = {version = "4.5.7", features = ["derive"]}
 crossterm = "0.28.1"
 dirs = "5.0.1"
-ginger-shared-rs = {version = "0.45.0-nightly.0", organization = "ginger-society"}
+ginger-shared-rs = {version = "0.49.0-nightly.0", organization = "ginger-society"}
 inquire = {version = "0.6.2", features = ["date"]}
 ratatui = "0.28.1"
 schema-gen-service = {path = "./schema-gen-service_client"}
@@ -23,6 +23,7 @@ toml = "0.8.14"
 tokio-tungstenite = { version = "0.26.2", features = ["tokio-native-tls", "native-tls"] }
 futures-util = "0.3.31"
 IAMService = { path = "./IAMService_client" }
+anyhow = "1.0.98"
 
 
 [package.metadata]

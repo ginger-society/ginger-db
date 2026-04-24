@@ -35,9 +35,9 @@ enum Commands {
         #[arg(short, long)]
         skip: bool,
     },
-    /// Configures a new db connection in a project
+    /// Configures a new db connection in a project - consumer
     Configure,
-    /// Generate the ORM models files as per the configuration
+    /// Generate the ORM models files as per the configuration - consumer
     Render {
         /// Skip the rendering of certain files
         #[arg(short, long)]
@@ -47,7 +47,7 @@ enum Commands {
         #[arg(long)]
         watch: bool,
     },
-    /// Start the terminal UI
+    /// Start the terminal UI - WIP , this will get integrated in Up command
     UI,
     /// Add a new DB to db-compose.toml
     AddDB,

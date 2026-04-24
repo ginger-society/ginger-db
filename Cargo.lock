@@ -168,6 +168,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.98"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
+
+[[package]]
 name = "async-stream"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,6 +962,7 @@ version = "0.10.0-nightly.0"
 dependencies = [
  "IAMService",
  "MetadataService",
+ "anyhow",
  "clap",
  "crossterm 0.28.1",
  "dirs",
@@ -974,9 +981,9 @@ dependencies = [
 
 [[package]]
 name = "ginger-shared-rs"
-version = "0.45.0-nightly.0"
+version = "0.49.0-nightly.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f24f96d82843ca7944bc51610f2f9a3d239bada15a734036d72dd2c518054211"
+checksum = "c91d9660364fb7019d1eda0310ca605956b082f92e45507bff1b8711091d011b"
 dependencies = [
  "clap",
  "dirs",

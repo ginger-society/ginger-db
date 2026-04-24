@@ -5,6 +5,7 @@ services:
     {% if db.db_type == "rdbms" %}
     {{ db.name }}-runtime:
         image: gingersociety/db-compose-runtime:latest
+        command: ["/app/run.sh"]
         ports:
             - {{ db.studio_port }}:8000
         environment:
@@ -50,12 +51,11 @@ services:
             - MONGO_URL=mongodb://mongo:mongo@{{ db.name }}-mongodb:27017
     {% elif db.db_type == "cache" %}
     {{ db.name }}-redis:
-        image: bitnami/redis:6.2.5
+        image: redis:7-alpine
         restart: always
-        environment:
-            ALLOW_EMPTY_PASSWORD: "yes"
+        command: ["redis-server", "--save", "", "--appendonly", "no"]
         healthcheck:
-            test: redis-cli ping
+            test: ["CMD", "redis-cli", "ping"]
             interval: 1s
             timeout: 3s
             retries: 50
