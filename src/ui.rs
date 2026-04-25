@@ -17,7 +17,7 @@ use ratatui::{
 };
 use std::{
     collections::HashMap,
-    io,
+    io::{self, Write},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -357,6 +357,37 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     KeyCode::Char('q') => break Ok(()),
                     KeyCode::Left => focus = Focus::Services,
                     KeyCode::Right => focus = Focus::Logs,
+                    KeyCode::Char('s') => {
+                        let list = services.lock().unwrap().clone();
+                        let idx = *selected_idx.lock().unwrap();
+
+                        if let Some(service) = list.get(idx) {
+                            if !service.container_id.is_empty() {
+                                // --- EXIT TUI CLEANLY ---
+                                disable_raw_mode()?;
+                                execute!(
+                                    terminal.backend_mut(),
+                                    LeaveAlternateScreen,
+                                    Clear(ClearType::All),
+                                    MoveTo(0, 0)
+                                )?;
+                                terminal.show_cursor()?;
+
+                                // flush to ensure terminal state is applied
+                                io::stdout().flush()?;
+
+                                // --- RUN SHELL ---
+                                let _ = open_shell(&service.container_id).await;
+
+                                // --- RE-ENTER TUI ---
+                                enable_raw_mode()?;
+                                execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+                                terminal.hide_cursor()?;
+                                terminal.clear()?;
+                            }
+                        }
+                        continue;
+                    }
 
                     KeyCode::Down => {
                         if focus == Focus::Services {
@@ -485,14 +516,18 @@ async fn get_container_logs(container_id: &str) -> Result<Vec<String>, Box<dyn s
     
     Ok(lines)
 }
-
 async fn open_shell(container_id: &str) -> Result<(), Box<dyn std::error::Error>> {
     use tokio::process::Command;
     use std::process::Stdio;
 
-    // Try bash first, fallback to sh
+    // Force allocation of pseudo-TTY (-it is already used but still safer)
     let status = Command::new("docker")
-        .args(["exec", "-it", container_id, "bash"])
+        .args([
+            "exec",
+            "-it",
+            container_id,
+            "bash",
+        ])
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -505,7 +540,7 @@ async fn open_shell(container_id: &str) -> Result<(), Box<dyn std::error::Error>
         }
     }
 
-    // fallback to sh
+    // fallback
     Command::new("docker")
         .args(["exec", "-it", container_id, "sh"])
         .stdin(Stdio::inherit())
@@ -516,4 +551,3 @@ async fn open_shell(container_id: &str) -> Result<(), Box<dyn std::error::Error>
 
     Ok(())
 }
-
