@@ -53,6 +53,7 @@ enum Focus {
 enum PopupAction {
     Start,
     Stop,
+    Quit,
 }
 
 struct Popup {
@@ -187,6 +188,12 @@ fn build_service_panel(service: &Service, db: Option<&DatabaseConfig>) -> Vec<Li
                     format!("http://localhost:{}", port),
                     Style::default().fg(Color::Yellow),
                 ),
+                Span::styled(
+                    "  [o] Open",
+                    Style::default()
+                        .fg(Color::DarkGray)
+                        .add_modifier(Modifier::ITALIC),
+                ),
             ]));
         }
     }
@@ -222,14 +229,6 @@ fn build_service_panel(service: &Service, db: Option<&DatabaseConfig>) -> Vec<Li
         }
     } else if skip_creds_rdbms_ui {
         lines.push(Line::from("🔓 no auth required"));
-    }
-
-    // ── Open shortcut (UI services) ───────────────────────────────
-    if is_ui && db.studio_port.is_some() {
-        lines.push(Line::from(vec![
-            Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
-            Span::raw("press 'o'"),
-        ]));
     }
 
     if lines.is_empty() {
@@ -333,7 +332,7 @@ fn status_color(status: &str) -> Color {
 }
 
 /* ================================================================
-   POPUP — start/stop confirm
+   POPUP — start/stop/quit confirm
    ================================================================ */
 
 fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
@@ -352,13 +351,10 @@ fn render_popup(f: &mut ratatui::Frame, popup: &Popup, area: Rect) {
     let popup_area = centered_rect(50, 7, area);
     f.render_widget(RatatuiClear, popup_area);
 
-    let action_label = match popup.action {
-        PopupAction::Start => "start",
-        PopupAction::Stop => "stop",
-    };
-    let action_color = match popup.action {
-        PopupAction::Start => Color::Green,
-        PopupAction::Stop => Color::Red,
+    let (action_label, action_color) = match popup.action {
+        PopupAction::Start => ("start", Color::Green),
+        PopupAction::Stop => ("stop", Color::Red),
+        PopupAction::Quit => ("quit", Color::Red),
     };
 
     let yes_style = if popup.selected == 0 {
@@ -378,32 +374,59 @@ fn render_popup(f: &mut ratatui::Frame, popup: &Popup, area: Rect) {
         Style::default().fg(Color::DarkGray)
     };
 
-    let body = vec![
-        Line::from(""),
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled(format!("{} ", action_label), Style::default().fg(Color::White)),
-            Span::styled(
-                popup.service_name.clone(),
-                Style::default().fg(action_color).add_modifier(Modifier::BOLD),
-            ),
-            Span::raw("?"),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::raw("        "),
-            Span::styled("  Yes  ", yes_style),
-            Span::raw("   "),
-            Span::styled("  No  ", no_style),
-        ]),
-        Line::from(""),
-    ];
+    let body = if popup.action == PopupAction::Quit {
+        vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled(
+                    "Are you sure you want to quit?",
+                    Style::default().fg(Color::White),
+                ),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("        "),
+                Span::styled("  Yes  ", yes_style),
+                Span::raw("   "),
+                Span::styled("  No  ", no_style),
+            ]),
+            Line::from(""),
+        ]
+    } else {
+        vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled(format!("{} ", action_label), Style::default().fg(Color::White)),
+                Span::styled(
+                    popup.service_name.clone(),
+                    Style::default().fg(action_color).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw("?"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("        "),
+                Span::styled("  Yes  ", yes_style),
+                Span::raw("   "),
+                Span::styled("  No  ", no_style),
+            ]),
+            Line::from(""),
+        ]
+    };
+
+    let title = if popup.action == PopupAction::Quit {
+        " Confirm QUIT "
+    } else {
+        &format!(" Confirm {} ", action_label.to_uppercase())
+    };
 
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(action_color))
         .title(Span::styled(
-            format!(" Confirm {} ", action_label.to_uppercase()),
+            title,
             Style::default().fg(action_color).add_modifier(Modifier::BOLD),
         ));
 
@@ -830,25 +853,33 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                             KeyCode::Tab => p.selected = (p.selected + 1) % 2,
                             KeyCode::Enter => {
                                 if p.selected == 0 {
-                                    let list = services.lock().unwrap().clone();
-                                    let idx = *selected_idx.lock().unwrap();
-                                    if let Some(svc) = list.get(idx) {
-                                        let action = match p.action {
-                                            PopupAction::Start => "start",
-                                            PopupAction::Stop => "stop",
-                                        };
-                                        let cid = svc.container_id.clone();
-                                        tokio::spawn(async move {
-                                            let _ = tokio::process::Command::new("docker")
-                                                .args([action, &cid])
-                                                .output()
-                                                .await;
-                                        });
+                                    if p.action == PopupAction::Quit {
+                                        // User confirmed quit
+                                        popup = None;
+                                        break;
+                                    } else {
+                                        // Start/Stop service
+                                        let list = services.lock().unwrap().clone();
+                                        let idx = *selected_idx.lock().unwrap();
+                                        if let Some(svc) = list.get(idx) {
+                                            let action = match p.action {
+                                                PopupAction::Start => "start",
+                                                PopupAction::Stop => "stop",
+                                                PopupAction::Quit => unreachable!(),
+                                            };
+                                            let cid = svc.container_id.clone();
+                                            tokio::spawn(async move {
+                                                let _ = tokio::process::Command::new("docker")
+                                                    .args([action, &cid])
+                                                    .output()
+                                                    .await;
+                                            });
+                                        }
                                     }
                                 }
                                 popup = None;
                             }
-                            KeyCode::Esc | KeyCode::Char('q') => popup = None,
+                            KeyCode::Esc => popup = None,
                             _ => {}
                         }
                         continue;
@@ -856,7 +887,14 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
                     /* ── Normal keys ── */
                     match key.code {
-                        KeyCode::Char('q') => break,
+                        KeyCode::Char('q') => {
+                            // Show quit confirmation popup
+                            popup = Some(Popup {
+                                service_name: String::new(),
+                                action: PopupAction::Quit,
+                                selected: 1, // Default to "No" for safety
+                            });
+                        }
 
                         KeyCode::Left => focus = Focus::Services,
                         KeyCode::Right => focus = Focus::Logs,
