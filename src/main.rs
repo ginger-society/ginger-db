@@ -47,8 +47,6 @@ enum Commands {
         #[arg(long)]
         watch: bool,
     },
-    /// Start the terminal UI - WIP , this will get integrated in Up command
-    UI,
     /// Add a new DB to db-compose.toml
     AddDB,
     /// Alter existing DB setup in db-compose.toml
@@ -102,12 +100,6 @@ async fn main() -> Result<()> {
             } else {
                 render::main(&open_api_config, db_config, db_config_path, skip).await;
             }
-        }
-        Commands::UI => {
-            match render_ui().await {
-                Ok(_) => println!("Exited!"),
-                Err(e) => println!("Unable to exit the expected way: {:?}", e),
-            };
         }
         Commands::AddDB => {
             let mut db_conpose_config = read_db_config("db-compose.toml").unwrap();
