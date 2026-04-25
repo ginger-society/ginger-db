@@ -722,6 +722,8 @@ pub async fn up(tera: Tera, skip: bool) {
         });
     }
 
+    let _ = show_splash_screen().await;
+
     // ── 7. Run startup TUI ────────────────────────────────────────
     match run_startup_tui(project_name.clone(), boot_services).await {
         Ok(true) => {
@@ -751,4 +753,65 @@ pub async fn up(tera: Tera, skip: bool) {
                 .await;
         }
     }
+}
+
+
+async fn show_splash_screen() -> Result<(), Box<dyn std::error::Error>> {
+    use crossterm::{
+        cursor::MoveTo,
+        execute,
+        terminal::{size, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
+    };
+    use std::io::{stdout, Write};
+
+    let splash = vec![
+        "      +@@@+-..:          ",
+        "     =@@*%*++=-::..      ",
+        "  =*%+*+++++=+==-....    ",
+        " -#%@======:+=:=-:...    ",
+        " -++:.#.-:-@%..+::....   ",
+        " :-=@##@@@@@%+#@+.....   ",
+        " ..#%  @@@@@+  %%:.+-.   ",
+        " ..#%%@@%#@@@%##*..+..   ",
+        " ..:%@@%#%+=@%%#-....    ",
+        "  ...+%%#**%%#*.....     ",
+        " %@%-:.. -:- .-.. -#@@+= ",
+        "#@@=:=- ++=+= --:.=@@@%=:",
+        "+%* ::.=*##*=-.... *%%#-:",
+        " =+ ...:*=.*+:..... :=-: ",
+        "    ....:==.:.......     ",
+        "    ....      ......     ",
+        "     ....    .....       ",
+        "          ..             ",
+        "       GingerDB          ",
+        "          By             ",
+        "    Ginger Society       ",
+    ];
+
+    let mut stdout = stdout();
+
+    execute!(stdout, EnterAlternateScreen)?;
+    execute!(stdout, Clear(ClearType::All))?;
+
+    let (cols, rows) = size()?;
+
+    let splash_height = splash.len() as u16;
+    let splash_width = splash.iter().map(|l| l.len()).max().unwrap_or(0) as u16;
+
+    let start_y = rows.saturating_sub(splash_height) / 2;
+    let start_x = cols.saturating_sub(splash_width) / 2;
+
+    for (i, line) in splash.iter().enumerate() {
+        execute!(stdout, MoveTo(start_x, start_y + i as u16))?;
+        print!("{}", line);
+    }
+
+    stdout.flush()?;
+
+    // ⏳ show for 3 seconds
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    execute!(stdout, LeaveAlternateScreen)?;
+
+    Ok(())
 }
