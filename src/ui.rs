@@ -1,11 +1,5 @@
 use crossterm::{
-    cursor::MoveTo,
-    event::{self, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{
-        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
-    },
+    cursor::MoveTo, event::{self, Event, KeyCode}, execute, terminal::{Clear, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode, ClearType}
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -21,6 +15,8 @@ use std::{
     time::Duration,
 };
 use tokio::time::sleep;
+
+use ginger_shared_rs::{read_db_config, DatabaseConfig, DbType};
 
 #[derive(Clone, Debug)]
 struct Service {
@@ -39,10 +35,52 @@ enum Focus {
 
 fn help_text(focus: &Focus) -> String {
     match focus {
-        Focus::Services => "↑/↓ select | ←/→ switch | s shell | q quit",
-        Focus::Logs => "PgUp start | PgDn follow | ↑/↓ scroll | j/k scroll | g/G jump | ←/→ switch | s shell",
+        Focus::Services => "↑/↓ select | ←/→ switch | s shell | o open UI | q quit",
+        Focus::Logs => "PgUp start | PgDn follow | ↑/↓ scroll | j/k scroll | g/G jump | ←/→ switch",
     }
     .to_string()
+}
+
+/* ---------------- ICONS ---------------- */
+
+fn db_icon(db_type: &DbType) -> &'static str {
+    match db_type {
+        DbType::Rdbms => "🗄️",
+        DbType::Cache => "⚡",
+        DbType::MessageQueue => "📬",
+        DbType::DocumentDb => "📄",
+    }
+}
+
+/* ---------------- MATCH DB ---------------- */
+
+fn find_db<'a>(
+    service_name: &str,
+    db_map: &'a HashMap<String, DatabaseConfig>,
+) -> Option<&'a DatabaseConfig> {
+    let name = service_name.to_lowercase();
+
+    db_map.iter().find_map(|(key, db)| {
+        if name.starts_with(&(key.clone() + "-")) {
+            Some(db)
+        } else {
+            None
+        }
+    })
+}
+
+/* ---------------- UI SERVICE CHECK ---------------- */
+
+fn is_ui_service(service_name: &str, db: &DatabaseConfig) -> bool {
+    let name = service_name.to_lowercase();
+    let base = db.name.to_lowercase();
+
+    match db.db_type {
+        DbType::Rdbms => name == format!("{}-runtime", base),
+        DbType::DocumentDb => name == format!("{}-mongo-gui", base),
+        DbType::MessageQueue => name == format!("{}-messagequeue", base),
+        DbType::Cache => false,
+    }
 }
 
 /* ---------------- MAIN ---------------- */
@@ -55,6 +93,15 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     let project_name = get_compose_project_name().await?;
+
+    /* -------- LOAD CONFIG -------- */
+    let db_config = read_db_config("db-compose.toml")?;
+
+    let db_map: HashMap<String, DatabaseConfig> = db_config
+        .database
+        .into_iter()
+        .map(|db| (db.name.to_lowercase(), db))
+        .collect();
 
     let services = Arc::new(Mutex::new(Vec::<Service>::new()));
     let service_logs: Arc<Mutex<HashMap<String, Vec<String>>>> =
@@ -104,8 +151,6 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     let mut auto_scroll = true;
     let mut scroll_offset: u16 = 0;
 
-    /* ================= LOOP ================= */
-
     loop {
         let services_list = services.lock().unwrap().clone();
         let current_idx = *selected_idx.lock().unwrap();
@@ -113,18 +158,12 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| {
             let root = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Min(0),
-                    Constraint::Length(2),
-                ])
-                .split(f.size());
+                .constraints([Constraint::Min(0), Constraint::Length(2)])
+                .split(f.area());
 
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Percentage(30),
-                    Constraint::Percentage(70),
-                ])
+                .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
                 .split(root[0]);
 
             /* -------- SERVICES -------- */
@@ -132,23 +171,51 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
             let items: Vec<ListItem> = services_list
                 .iter()
                 .enumerate()
-                .map(|(i, s)| {
-                    let mut style = Style::default().fg(Color::Gray);
+                .map(|(i, service)| {
+                    let db_info = find_db(&service.name, &db_map);
+
+                    let mut style = if let Some(db) = db_info {
+                        if is_ui_service(&service.name, db) {
+                            Style::default().fg(Color::Cyan)
+                        } else {
+                            Style::default().fg(Color::Gray)
+                        }
+                    } else {
+                        Style::default().fg(Color::Gray)
+                    };
 
                     if i == current_idx {
                         style = style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
                     }
 
-                    ListItem::new(format!("● {} [{}]", s.name, s.status)).style(style)
+                    let (icon, extra) = if let Some(db) = db_info {
+                        let icon = db_icon(&db.db_type);
+
+                        let studio = if is_ui_service(&service.name, db) {
+                            db.studio_port
+                                .as_ref()
+                                .map(|p| format!(" | studio: {}", p))
+                                .unwrap_or_default()
+                        } else {
+                            "".to_string()
+                        };
+
+                        (icon, studio)
+                    } else {
+                        ("●", "".to_string())
+                    };
+
+                    ListItem::new(format!(
+                        "{} {} [{}]{}",
+                        icon, service.name, service.status, extra
+                    ))
+                    .style(style)
                 })
                 .collect();
 
             let services_block = Block::default()
                 .borders(Borders::ALL)
-                .title(format!(
-                    "Services {}",
-                    if focus == Focus::Services { "[ACTIVE]" } else { "" }
-                ))
+                .title("Services")
                 .border_style(if focus == Focus::Services {
                     Style::default().fg(Color::Yellow)
                 } else {
@@ -161,11 +228,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
             let logs_block = Block::default()
                 .borders(Borders::ALL)
-                .title(format!(
-                    "Logs {} {}",
-                    if focus == Focus::Logs { "[ACTIVE]" } else { "" },
-                    if auto_scroll { "[FOLLOW]" } else { "[PAUSED]" }
-                ))
+                .title(if auto_scroll { "Logs [FOLLOW]" } else { "Logs [PAUSED]" })
                 .border_style(if focus == Focus::Logs {
                     Style::default().fg(Color::Yellow)
                 } else {
@@ -189,7 +252,6 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     scroll_offset = max_scroll;
                 } else {
                     scroll_offset = scroll_offset.min(max_scroll);
-
                     if scroll_offset >= max_scroll {
                         auto_scroll = true;
                     }
@@ -209,7 +271,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 );
             }
 
-            /* -------- HELP BAR -------- */
+            /* -------- HELP -------- */
 
             let help = Paragraph::new(help_text(&focus))
                 .style(Style::default().fg(Color::DarkGray))
@@ -218,117 +280,131 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
             f.render_widget(help, root[1]);
         })?;
 
-        /* ================= INPUT ================= */
+        /* -------- INPUT -------- */
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => break,
 
-                    KeyCode::Left => focus = Focus::Services,
-                    KeyCode::Right => focus = Focus::Logs,
+                // ---------- GLOBAL KEYS ----------
+                match key.code {
+                    KeyCode::Char('q') => break Ok(()),
+
+                    KeyCode::Left => {
+                        focus = Focus::Services;
+                        continue;
+                    }
+
+                    KeyCode::Right => {
+                        focus = Focus::Logs;
+                        continue;
+                    }
+
+                    KeyCode::Char('o') => {
+                        let list = services.lock().unwrap().clone();
+                        let idx = *selected_idx.lock().unwrap();
+
+                        if let Some(service) = list.get(idx) {
+                            if let Some(db) = find_db(&service.name, &db_map) {
+                                if is_ui_service(&service.name, db) {
+                                    if let Some(port) = &db.studio_port {
+                                        let url = format!("http://localhost:{}", port);
+                                        let _ = open::that(url);
+                                    }
+                                }
+                            }
+                        }
+                        continue;
+                    }
 
                     KeyCode::Char('s') => {
                         let list = services.lock().unwrap().clone();
                         let idx = *selected_idx.lock().unwrap();
 
                         if let Some(service) = list.get(idx) {
-                            let container_id = service.container_id.clone();
-
-                            if !container_id.is_empty() {
-                                /* -------- CLEAN EXIT -------- */
+                            if !service.container_id.is_empty() {
                                 disable_raw_mode()?;
-                                execute!(
-                                    terminal.backend_mut(),
-                                    LeaveAlternateScreen,
-                                    Clear(ClearType::All),
-                                    MoveTo(0, 0)
-                                )?;
+                                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
                                 terminal.show_cursor()?;
 
-                                // HARD RESET (fixes "starts from bottom")
-                                println!("\x1b[2J\x1b[H");
-                                println!("\nEntering shell: {}\n", container_id);
-
-                                /* -------- SHELL -------- */
-                                let _ = open_shell(&container_id).await;
-
-                                /* -------- RESTORE -------- */
-                                enable_raw_mode()?;
+                                let mut stdout = io::stdout();
                                 execute!(
-                                    terminal.backend_mut(),
-                                    EnterAlternateScreen,
+                                    stdout,
                                     Clear(ClearType::All),
-                                    MoveTo(0, 0)
+                                    MoveTo(0, 0),
                                 )?;
-                                terminal.hide_cursor()?;
 
+                                let _ = open_shell(&service.container_id).await;
+
+                                enable_raw_mode()?;
+                                execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+                                terminal.hide_cursor()?;
                                 terminal.clear()?;
-                                terminal.draw(|_| {})?;
                             }
+                        }
+                        continue;
+                    }
+
+                    _ => {}
+                }
+
+                // ---------- FOCUS-SPECIFIC ----------
+                match focus {
+                    Focus::Services => {
+                        match key.code {
+                            KeyCode::Down => {
+                                let len = services.lock().unwrap().len();
+                                if len > 0 {
+                                    let mut idx = selected_idx.lock().unwrap();
+                                    *idx = (*idx + 1).min(len - 1);
+                                }
+                            }
+
+                            KeyCode::Up => {
+                                let mut idx = selected_idx.lock().unwrap();
+                                *idx = idx.saturating_sub(1);
+                            }
+
+                            _ => {}
                         }
                     }
 
-                    _ => {
-                        /* -------- SERVICES -------- */
-                        if focus == Focus::Services {
-                            match key.code {
-                                KeyCode::Down => {
-                                    let len = services.lock().unwrap().len();
-                                    if len > 0 {
-                                        let mut idx = selected_idx.lock().unwrap();
-                                        *idx = (*idx + 1).min(len - 1);
-                                    }
-                                }
-                                KeyCode::Up => {
-                                    let mut idx = selected_idx.lock().unwrap();
-                                    *idx = idx.saturating_sub(1);
-                                }
-                                _ => {}
+                    Focus::Logs => {
+                        match key.code {
+                            KeyCode::PageUp => {
+                                auto_scroll = false;
+                                scroll_offset = 0;
                             }
-                        }
 
-                        /* -------- LOGS -------- */
-                        if focus == Focus::Logs {
-                            match key.code {
-                                KeyCode::PageUp => {
-                                    auto_scroll = false;
-                                    scroll_offset = 0;
-                                }
-                                KeyCode::PageDown => {
-                                    auto_scroll = true;
-                                }
-                                KeyCode::Down | KeyCode::Char('j') => {
-                                    auto_scroll = false;
-                                    scroll_offset += 1;
-                                }
-                                KeyCode::Up | KeyCode::Char('k') => {
-                                    auto_scroll = false;
-                                    scroll_offset = scroll_offset.saturating_sub(1);
-                                }
-                                KeyCode::Char('g') => {
-                                    auto_scroll = false;
-                                    scroll_offset = 0;
-                                }
-                                KeyCode::Char('G') => {
-                                    auto_scroll = true;
-                                }
-                                _ => {}
+                            KeyCode::PageDown => {
+                                auto_scroll = true;
                             }
+
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                auto_scroll = false;
+                                scroll_offset += 1;
+                            }
+
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                auto_scroll = false;
+                                scroll_offset = scroll_offset.saturating_sub(1);
+                            }
+
+                            KeyCode::Char('g') => {
+                                auto_scroll = false;
+                                scroll_offset = 0;
+                            }
+
+                            KeyCode::Char('G') => {
+                                auto_scroll = true;
+                            }
+
+                            _ => {}
                         }
                     }
                 }
             }
         }
     }
-
-    /* -------- CLEANUP -------- */
-
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-
-    Ok(())
 }
 
 async fn get_compose_project_name() -> Result<String, Box<dyn std::error::Error>> {
@@ -458,3 +534,4 @@ async fn open_shell(container_id: &str) -> Result<(), Box<dyn std::error::Error>
 
     Ok(())
 }
+

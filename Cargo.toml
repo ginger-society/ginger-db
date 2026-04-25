@@ -24,6 +24,7 @@ tokio-tungstenite = { version = "0.26.2", features = ["tokio-native-tls", "nativ
 futures-util = "0.3.31"
 IAMService = { path = "./IAMService_client" }
 anyhow = "1.0.98"
+open = "5.3.4"
 
 
 [package.metadata]
