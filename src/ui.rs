@@ -357,6 +357,22 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     KeyCode::Char('q') => break Ok(()),
                     KeyCode::Left => focus = Focus::Services,
                     KeyCode::Right => focus = Focus::Logs,
+                    KeyCode::Char('o') => {
+                        let list = services.lock().unwrap().clone();
+                        let idx = *selected_idx.lock().unwrap();
+
+                        if let Some(service) = list.get(idx) {
+                            if let Some(db) = find_db(&service.name, &db_map) {
+                                if is_ui_service(&service.name, db) {
+                                    if let Some(port) = &db.studio_port {
+                                        let url = format!("http://localhost:{}", port);
+                                        let _ = open::that(url);
+                                    }
+                                }
+                            }
+                        }
+                        continue;
+                    }
                     KeyCode::Char('s') => {
                         let list = services.lock().unwrap().clone();
                         let idx = *selected_idx.lock().unwrap();
