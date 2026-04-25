@@ -25,6 +25,7 @@ futures-util = "0.3.31"
 IAMService = { path = "./IAMService_client" }
 anyhow = "1.0.98"
 open = "5.3.4"
+arboard = "3.6.1"
 
 
 [package.metadata]

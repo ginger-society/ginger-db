@@ -1,6 +1,9 @@
 use crossterm::{
     cursor::MoveTo,
-    event::{self, EnableMouseCapture, DisableMouseCapture, Event, KeyCode, MouseEventKind, MouseButton},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton,
+        MouseEventKind,
+    },
     execute,
     terminal::{
         disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
@@ -13,8 +16,8 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{
-        Block, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
-        ScrollbarState, Wrap, Clear as RatatuiClear,
+        Block, Borders, Clear as RatatuiClear, List, ListItem, Paragraph, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, Wrap,
     },
     Terminal,
 };
@@ -22,11 +25,15 @@ use std::{
     collections::HashMap,
     io::{self, Write},
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::time::sleep;
 
 use ginger_shared_rs::{read_db_config, DatabaseConfig, DbType};
+
+/* ================================================================
+   DATA TYPES
+   ================================================================ */
 
 #[derive(Clone, Debug)]
 struct Service {
@@ -55,10 +62,32 @@ struct Popup {
     selected: usize,
 }
 
+/// A brief auto-dismissing notification shown after clipboard copy.
+struct Toast {
+    message: String,
+    expires_at: Instant,
+}
+
+impl Toast {
+    fn new(msg: impl Into<String>, duration: Duration) -> Self {
+        Toast {
+            message: msg.into(),
+            expires_at: Instant::now() + duration,
+        }
+    }
+    fn is_expired(&self) -> bool {
+        Instant::now() >= self.expires_at
+    }
+}
+
 struct DevIdentity {
     username: &'static str,
     password: &'static str,
 }
+
+/* ================================================================
+   IDENTITIES
+   ================================================================ */
 
 fn dev_identity(db_type: &DbType) -> Option<DevIdentity> {
     match db_type {
@@ -78,158 +107,175 @@ fn dev_identity(db_type: &DbType) -> Option<DevIdentity> {
     }
 }
 
-fn build_service_panel(
-    service: &Service,
-    db: Option<&DatabaseConfig>,
-) -> Vec<Line<'static>> {
-    let mut lines = vec![];
+/* ================================================================
+   CONNECTION STRING  (single source of truth — used for display & clipboard)
+   ================================================================ */
 
-    if let Some(db) = db {
-        let is_ui = is_ui_service(&service.name, db);
-        let is_db = is_db_service(&service.name, db);
-
-        if db.db_type == DbType::MessageQueue && is_ui {
-            if let Some(port) = &db.studio_port {
-                lines.push(Line::from(vec![
-                    Span::styled("🌐 UI: ", Style::default().fg(Color::Cyan)),
-                    Span::styled(format!("http://localhost:{}", port), Style::default().fg(Color::Yellow)),
-                ]));
-            }
-
-            if let Some(identity) = dev_identity(&db.db_type) {
-                let conn = format!(
-                    "amqp://{}:{}@localhost:{}",
-                    identity.username,
-                    identity.password,
-                    db.port
-                );
-
-                lines.push(Line::from(vec![
-                    Span::styled("🔌 conn: ", Style::default().fg(Color::Cyan)),
-                    Span::styled(conn, Style::default().fg(Color::Yellow)),
-                ]));
-
-                lines.push(Line::from(vec![
-                    Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
-                    Span::raw(identity.username),
-                ]));
-
-                lines.push(Line::from(vec![
-                    Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
-                    Span::raw(identity.password),
-                ]));
-
-                lines.push(Line::from(vec![
-                    Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
-                    Span::raw("press 'o'"),
-                ]));
-            }
-        } else if is_ui {
-            if let Some(port) = &db.studio_port {
-                lines.push(Line::from(vec![
-                    Span::styled("🌐 UI: ", Style::default().fg(Color::Cyan)),
-                    Span::styled(format!("http://localhost:{}", port), Style::default().fg(Color::Yellow)),
-                ]));
-
-                if db.db_type == DbType::Rdbms {
-                    lines.push(Line::from("🔓 no auth required"));
-                } else if let Some(identity) = dev_identity(&db.db_type) {
-                    lines.push(Line::from(vec![
-                        Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
-                        Span::raw(identity.username),
-                    ]));
-
-                    lines.push(Line::from(vec![
-                        Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
-                        Span::raw(identity.password),
-                    ]));
+fn get_connection_string(service: &Service, db: &DatabaseConfig) -> Option<String> {
+    if is_db_service(&service.name, db) {
+        let conn = match db.db_type {
+            DbType::Rdbms => {
+                if let Some(id) = dev_identity(&db.db_type) {
+                    format!(
+                        "postgresql://{}:{}@localhost:{}/{}",
+                        id.username, id.password, db.port, service.name
+                    )
+                } else {
+                    format!("postgresql://localhost:{}/{}", db.port, service.name)
                 }
-
-                lines.push(Line::from(vec![
-                    Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
-                    Span::raw("press 'o'"),
-                ]));
             }
-        } else if is_db {
-            let conn = match db.db_type {
-                DbType::Rdbms => {
-                    if let Some(identity) = dev_identity(&db.db_type) {
-                        format!(
-                            "postgresql://{}:{}@localhost:{}/{}",
-                            identity.username, identity.password, db.port, service.name
-                        )
-                    } else {
-                        format!("postgresql://localhost:{}/{}", db.port, service.name)
-                    }
+            DbType::DocumentDb => {
+                if let Some(id) = dev_identity(&db.db_type) {
+                    format!(
+                        "mongodb://{}:{}@localhost:{}",
+                        id.username, id.password, db.port
+                    )
+                } else {
+                    format!("mongodb://localhost:{}", db.port)
                 }
-                DbType::DocumentDb => {
-                    if let Some(identity) = dev_identity(&db.db_type) {
-                        format!(
-                            "mongodb://{}:{}@localhost:{}",
-                            identity.username, identity.password, db.port
-                        )
-                    } else {
-                        format!("mongodb://localhost:{}", db.port)
-                    }
-                }
-                DbType::Cache => format!("redis://localhost:{}", db.port),
-                DbType::MessageQueue => {
-                    if let Some(identity) = dev_identity(&db.db_type) {
-                        format!(
-                            "amqp://{}:{}@localhost:{}",
-                            identity.username, identity.password, db.port
-                        )
-                    } else {
-                        format!("amqp://localhost:{}", db.port)
-                    }
-                }
-            };
-
-            lines.push(Line::from(vec![
-                Span::styled("🔌 conn: ", Style::default().fg(Color::Cyan)),
-                Span::styled(conn, Style::default().fg(Color::Yellow)),
-            ]));
-
-            if let Some(identity) = dev_identity(&db.db_type) {
-                lines.push(Line::from(vec![
-                    Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
-                    Span::raw(identity.username),
-                ]));
-
-                lines.push(Line::from(vec![
-                    Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
-                    Span::raw(identity.password),
-                ]));
             }
+            DbType::Cache => format!("redis://localhost:{}", db.port),
+            DbType::MessageQueue => {
+                if let Some(id) = dev_identity(&db.db_type) {
+                    format!(
+                        "amqp://{}:{}@localhost:{}",
+                        id.username, id.password, db.port
+                    )
+                } else {
+                    format!("amqp://localhost:{}", db.port)
+                }
+            }
+        };
+        Some(conn)
+    } else if db.db_type == DbType::MessageQueue && is_ui_service(&service.name, db) {
+        // RabbitMQ combined UI+service node — also has a usable connection string
+        if let Some(id) = dev_identity(&db.db_type) {
+            Some(format!(
+                "amqp://{}:{}@localhost:{}",
+                id.username, id.password, db.port
+            ))
         } else {
-            lines.push(Line::from("No connection info available"));
+            Some(format!("amqp://localhost:{}", db.port))
         }
     } else {
+        None
+    }
+}
+
+/* ================================================================
+   SERVICE INFO PANEL LINES
+   ================================================================ */
+
+fn build_service_panel(service: &Service, db: Option<&DatabaseConfig>) -> Vec<Line<'static>> {
+    let mut lines: Vec<Line<'static>> = vec![];
+
+    let Some(db) = db else {
         lines.push(Line::from("No DB config found"));
+        return lines;
+    };
+
+    let is_ui = is_ui_service(&service.name, db);
+    let is_db = is_db_service(&service.name, db);
+    let conn_str = get_connection_string(service, db);
+
+    // ── UI link ──────────────────────────────────────────────────
+    if is_ui {
+        if let Some(port) = &db.studio_port {
+            lines.push(Line::from(vec![
+                Span::styled("🌐 UI:  ", Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!("http://localhost:{}", port),
+                    Style::default().fg(Color::Yellow),
+                ),
+            ]));
+        }
+    }
+
+    // ── Connection String ─────────────────────────────────────────
+    if let Some(ref conn) = conn_str {
+        lines.push(Line::from(vec![
+            Span::styled("🔌 Connection String: ", Style::default().fg(Color::Cyan)),
+            Span::styled(conn.clone(), Style::default().fg(Color::Yellow)),
+            Span::styled(
+                "  [c] copy",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::ITALIC),
+            ),
+        ]));
+    }
+
+    // ── Credentials ───────────────────────────────────────────────
+    let show_creds = is_db || (db.db_type == DbType::MessageQueue && is_ui);
+    let skip_creds_rdbms_ui = db.db_type == DbType::Rdbms && is_ui;
+
+    if show_creds && !skip_creds_rdbms_ui {
+        if let Some(id) = dev_identity(&db.db_type) {
+            lines.push(Line::from(vec![
+                Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
+                Span::raw(id.username),
+            ]));
+            lines.push(Line::from(vec![
+                Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
+                Span::raw(id.password),
+            ]));
+        }
+    } else if skip_creds_rdbms_ui {
+        lines.push(Line::from("🔓 no auth required"));
+    }
+
+    // ── Open shortcut (UI services) ───────────────────────────────
+    if is_ui && db.studio_port.is_some() {
+        lines.push(Line::from(vec![
+            Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
+            Span::raw("press 'o'"),
+        ]));
+    }
+
+    if lines.is_empty() {
+        lines.push(Line::from("No connection info available"));
     }
 
     lines
 }
 
-/* ---------------- HELP ---------------- */
+/* ================================================================
+   CLIPBOARD
+   ================================================================ */
 
-fn help_text(focus: &Focus, show_open: bool) -> String {
+fn copy_to_clipboard(text: &str) -> Result<(), String> {
+    use arboard::Clipboard;
+    let mut cb = Clipboard::new().map_err(|e| format!("Clipboard init failed: {e}"))?;
+    cb.set_text(text).map_err(|e| format!("Clipboard write failed: {e}"))
+}
+
+/* ================================================================
+   HELP TEXT
+   ================================================================ */
+
+fn help_text(focus: &Focus, show_open: bool, has_conn: bool) -> String {
     match focus {
         Focus::Services => {
+            let mut parts = vec!["↑/↓ select", "←/→ switch", "Enter start/stop", "s shell"];
             if show_open {
-                "↑/↓ select | ←/→ switch | Enter start/stop | s shell | o open UI | q quit"
-            } else {
-                "↑/↓ select | ←/→ switch | Enter start/stop | s shell | q quit"
+                parts.push("o open UI");
             }
+            if has_conn {
+                parts.push("c copy conn");
+            }
+            parts.push("q quit");
+            parts.join(" | ")
         }
         Focus::Logs => {
             "PgUp start | PgDn follow | ↑/↓ scroll | j/k scroll | g/G jump | ←/→ switch"
+                .to_string()
         }
     }
-    .to_string()
 }
 
-/* ---------------- ICONS ---------------- */
+/* ================================================================
+   ICONS / HELPERS
+   ================================================================ */
 
 fn db_icon(db_type: &DbType) -> &'static str {
     match db_type {
@@ -239,8 +285,6 @@ fn db_icon(db_type: &DbType) -> &'static str {
         DbType::DocumentDb => "📄",
     }
 }
-
-/* ---------------- MATCH DB ---------------- */
 
 fn find_db<'a>(
     service_name: &str,
@@ -256,8 +300,6 @@ fn find_db<'a>(
     })
 }
 
-/* ---------------- UI SERVICE CHECK ---------------- */
-
 fn is_ui_service(service_name: &str, db: &DatabaseConfig) -> bool {
     let name = service_name.to_lowercase();
     let base = db.name.to_lowercase();
@@ -268,8 +310,6 @@ fn is_ui_service(service_name: &str, db: &DatabaseConfig) -> bool {
         DbType::Cache => false,
     }
 }
-
-/* ---------------- DB SERVICE CHECK ---------------- */
 
 fn is_db_service(service_name: &str, db: &DatabaseConfig) -> bool {
     let name = service_name.to_lowercase();
@@ -282,8 +322,6 @@ fn is_db_service(service_name: &str, db: &DatabaseConfig) -> bool {
     }
 }
 
-/* ---------------- STATUS COLOR ---------------- */
-
 fn status_color(status: &str) -> Color {
     match status {
         "running" => Color::Green,
@@ -294,7 +332,9 @@ fn status_color(status: &str) -> Color {
     }
 }
 
-/* ---------------- POPUP RENDERER ---------------- */
+/* ================================================================
+   POPUP — start/stop confirm
+   ================================================================ */
 
 fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
     let popup_width = r.width * percent_x / 100;
@@ -310,8 +350,6 @@ fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
 
 fn render_popup(f: &mut ratatui::Frame, popup: &Popup, area: Rect) {
     let popup_area = centered_rect(50, 7, area);
-
-    // Clear behind popup
     f.render_widget(RatatuiClear, popup_area);
 
     let action_label = match popup.action {
@@ -323,15 +361,19 @@ fn render_popup(f: &mut ratatui::Frame, popup: &Popup, area: Rect) {
         PopupAction::Stop => Color::Red,
     };
 
-    let title = format!(" Confirm {} ", action_label.to_uppercase());
-
     let yes_style = if popup.selected == 0 {
-        Style::default().fg(Color::Black).bg(action_color).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Black)
+            .bg(action_color)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::DarkGray)
     };
     let no_style = if popup.selected == 1 {
-        Style::default().fg(Color::Black).bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::DarkGray)
     };
@@ -340,11 +382,11 @@ fn render_popup(f: &mut ratatui::Frame, popup: &Popup, area: Rect) {
         Line::from(""),
         Line::from(vec![
             Span::raw("  "),
+            Span::styled(format!("{} ", action_label), Style::default().fg(Color::White)),
             Span::styled(
-                format!("{} ", action_label),
-                Style::default().fg(Color::White),
+                popup.service_name.clone(),
+                Style::default().fg(action_color).add_modifier(Modifier::BOLD),
             ),
-            Span::styled(&popup.service_name, Style::default().fg(action_color).add_modifier(Modifier::BOLD)),
             Span::raw("?"),
         ]),
         Line::from(""),
@@ -360,41 +402,78 @@ fn render_popup(f: &mut ratatui::Frame, popup: &Popup, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(action_color))
-        .title(Span::styled(title, Style::default().fg(action_color).add_modifier(Modifier::BOLD)));
+        .title(Span::styled(
+            format!(" Confirm {} ", action_label.to_uppercase()),
+            Style::default().fg(action_color).add_modifier(Modifier::BOLD),
+        ));
 
-    let paragraph = Paragraph::new(body).block(block);
-    f.render_widget(paragraph, popup_area);
+    f.render_widget(Paragraph::new(body).block(block), popup_area);
 }
 
-/* ---------------- HIT TESTING ---------------- */
+/* ================================================================
+   TOAST — clipboard confirmation (top-right corner, auto-dismisses)
+   ================================================================ */
 
-/// Returns the service index if the click is inside the services list area.
-fn click_service_index(col: u16, row: u16, list_area: Rect, services: &[Service]) -> Option<usize> {
+fn render_toast(f: &mut ratatui::Frame, toast: &Toast, area: Rect) {
+    let msg = &toast.message;
+    let width = (msg.len() as u16 + 8).min(area.width);
+    let height = 3u16;
+    let toast_area = Rect {
+        x: area.x + area.width.saturating_sub(width + 2),
+        y: area.y + 1,
+        width,
+        height,
+    };
+
+    f.render_widget(RatatuiClear, toast_area);
+
+    let paragraph = Paragraph::new(Line::from(vec![
+        Span::styled(" ✓ ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::styled(msg.clone(), Style::default().fg(Color::White)),
+    ]))
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Green))
+            .title(Span::styled(
+                " Copied! ",
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            )),
+    );
+
+    f.render_widget(paragraph, toast_area);
+}
+
+/* ================================================================
+   HIT TESTING
+   ================================================================ */
+
+fn click_service_index(
+    col: u16,
+    row: u16,
+    list_area: Rect,
+    services: &[Service],
+) -> Option<usize> {
     if col < list_area.x
         || col >= list_area.x + list_area.width
-        || row < list_area.y + 1          // +1 for border
+        || row < list_area.y + 1
         || row >= list_area.y + list_area.height - 1
     {
         return None;
     }
-
-    // Each service renders as 2 lines (name+status, image) inside the list.
-    // We stored 2 lines per item (sometimes 3 if port was shown — now always 2).
     let relative_row = (row - list_area.y - 1) as usize;
     let lines_per_item = 2usize;
     let idx = relative_row / lines_per_item;
-    if idx < services.len() {
-        Some(idx)
-    } else {
-        None
-    }
+    if idx < services.len() { Some(idx) } else { None }
 }
 
 fn point_in_rect(col: u16, row: u16, area: Rect) -> bool {
     col >= area.x && col < area.x + area.width && row >= area.y && row < area.y + area.height
 }
 
-/* ---------------- MAIN ---------------- */
+/* ================================================================
+   MAIN RENDER LOOP
+   ================================================================ */
 
 pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
@@ -416,7 +495,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(Mutex::new(HashMap::new()));
     let selected_idx = Arc::new(Mutex::new(0usize));
 
-    /* -------- SERVICES POLLER -------- */
+    // ── Background pollers ──────────────────────────────────────
     {
         let services = services.clone();
         let project_name = project_name.clone();
@@ -429,8 +508,6 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
     }
-
-    /* -------- LOGS POLLER -------- */
     {
         let services = services.clone();
         let logs = service_logs.clone();
@@ -454,16 +531,29 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     let mut auto_scroll = true;
     let mut scroll_offset: usize = 0;
     let mut popup: Option<Popup> = None;
+    let mut toast: Option<Toast> = None;
 
-    // Track rendered areas for mouse hit testing
+    // Saved areas from last draw — used for mouse hit testing
     let mut services_list_area = Rect::default();
     let mut logs_area = Rect::default();
 
     loop {
+        // Expire toast before drawing so it disappears cleanly
+        if let Some(ref t) = toast {
+            if t.is_expired() {
+                toast = None;
+            }
+        }
+
         let services_list = services.lock().unwrap().clone();
         let current_idx = *selected_idx.lock().unwrap();
 
-        // Capture areas during draw for use in mouse events
+        // Compute per-frame derived state once, used in both draw and input
+        let selected_service = services_list.get(current_idx).cloned();
+        let current_conn_str = selected_service.as_ref().and_then(|svc| {
+            find_db(&svc.name, &db_map).and_then(|db| get_connection_string(svc, db))
+        });
+
         let mut new_services_area = Rect::default();
         let mut new_logs_area = Rect::default();
 
@@ -480,8 +570,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
             new_services_area = chunks[0];
 
-            /* ---------------- SERVICES LIST ---------------- */
-
+            /* ── Services list ── */
             let items: Vec<ListItem> = services_list
                 .iter()
                 .enumerate()
@@ -490,35 +579,31 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     let is_selected = i == current_idx;
 
                     let mut base_style = Style::default().fg(Color::Gray);
-
                     if is_selected {
-                        if focus == Focus::Services {
-                            base_style = base_style
+                        base_style = if focus == Focus::Services {
+                            base_style
                                 .bg(Color::Yellow)
                                 .fg(Color::Black)
-                                .add_modifier(Modifier::BOLD);
+                                .add_modifier(Modifier::BOLD)
                         } else {
-                            base_style = base_style
-                                .bg(Color::DarkGray)
-                                .add_modifier(Modifier::BOLD);
-                        }
+                            base_style.bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+                        };
                     }
 
                     let (icon, icon_color) = if let Some(db) = db_info {
-                        let icon = db_icon(&db.db_type);
-                        let icon_color = match db.db_type {
+                        let color = match db.db_type {
                             DbType::Rdbms => Color::Blue,
                             DbType::Cache => Color::Yellow,
                             DbType::MessageQueue => Color::Magenta,
                             DbType::DocumentDb => Color::Green,
                         };
-                        (icon, icon_color)
+                        (db_icon(&db.db_type), color)
                     } else {
                         ("●", Color::DarkGray)
                     };
 
-                    // Two lines per item: name+status, image
-                    // Port line removed — that info lives in the Service Info panel
+                    // 2 lines per item: name+status, image
+                    // Port removed — lives in the Service Info panel
                     let lines = vec![
                         Line::from(vec![
                             Span::styled(format!("{} ", icon), Style::default().fg(icon_color)),
@@ -538,19 +623,21 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect();
 
-            let services_block = Block::default()
-                .borders(Borders::ALL)
-                .title("Services")
-                .border_style(if focus == Focus::Services {
-                    Style::default().fg(Color::Yellow)
-                } else {
-                    Style::default()
-                });
+            f.render_widget(
+                List::new(items).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Services")
+                        .border_style(if focus == Focus::Services {
+                            Style::default().fg(Color::Yellow)
+                        } else {
+                            Style::default()
+                        }),
+                ),
+                chunks[0],
+            );
 
-            f.render_widget(List::new(items).block(services_block), chunks[0]);
-
-            /* ---------------- RIGHT PANEL SPLIT ---------------- */
-
+            /* ── Right panel split ── */
             let right_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Length(6), Constraint::Min(0)])
@@ -558,43 +645,29 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
             new_logs_area = right_chunks[1];
 
-            /* ---------------- SERVICE INFO PANEL ---------------- */
-
-            let selected_service = services_list.get(current_idx);
-
-            let panel_lines = if let Some(service) = selected_service {
-                let db = find_db(&service.name, &db_map);
-                build_service_panel(service, db)
+            /* ── Service Info panel ── */
+            let panel_lines = if let Some(ref svc) = selected_service {
+                build_service_panel(svc, find_db(&svc.name, &db_map))
             } else {
                 vec![Line::from("No service selected")]
             };
 
-            let panel = Paragraph::new(panel_lines)
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .title("Service Info")
-                        .border_style(Style::default().fg(Color::Blue)),
-                )
-                .wrap(Wrap { trim: true });
+            f.render_widget(
+                Paragraph::new(panel_lines)
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title("Service Info")
+                            .border_style(Style::default().fg(Color::Blue)),
+                    )
+                    .wrap(Wrap { trim: true }),
+                right_chunks[0],
+            );
 
-            f.render_widget(panel, right_chunks[0]);
-
-            /* ---------------- LOGS + SCROLLBAR ---------------- */
-
-            let logs_block = Block::default()
-                .borders(Borders::ALL)
-                .title(if auto_scroll { "Logs [FOLLOW]" } else { "Logs [PAUSED]" })
-                .border_style(if focus == Focus::Logs {
-                    Style::default().fg(Color::Yellow)
-                } else {
-                    Style::default()
-                });
-
+            /* ── Logs + scrollbar ── */
             let log_text = if !services_list.is_empty() && current_idx < services_list.len() {
                 let logs = service_logs.lock().unwrap();
-                let selected = &services_list[current_idx].name;
-                logs.get(selected)
+                logs.get(&services_list[current_idx].name)
                     .map(|l| l.join("\n"))
                     .unwrap_or_else(|| "Loading logs...".to_string())
             } else {
@@ -614,7 +687,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            // Inner area for logs paragraph (leave 1 col on right for scrollbar)
+            // Shrink width by 1 col so scrollbar doesn't overlap text
             let inner_log_area = Rect {
                 x: right_chunks[1].x,
                 y: right_chunks[1].y,
@@ -624,66 +697,81 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
             f.render_widget(
                 Paragraph::new(log_text)
-                    .block(logs_block)
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title(if auto_scroll { "Logs [FOLLOW]" } else { "Logs [PAUSED]" })
+                            .border_style(if focus == Focus::Logs {
+                                Style::default().fg(Color::Yellow)
+                            } else {
+                                Style::default()
+                            }),
+                    )
                     .wrap(Wrap { trim: false })
                     .scroll((scroll_offset as u16, 0)),
                 inner_log_area,
             );
 
-            // Scrollbar
-            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(Some("▲"))
-                .end_symbol(Some("▼"))
-                .track_symbol(Some("│"))
-                .thumb_symbol("█");
+            let mut scrollbar_state =
+                ScrollbarState::new(max_scroll.max(1)).position(scroll_offset);
 
-            let mut scrollbar_state = ScrollbarState::new(max_scroll.max(1))
-                .position(scroll_offset);
+            f.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(Some("▲"))
+                    .end_symbol(Some("▼"))
+                    .track_symbol(Some("│"))
+                    .thumb_symbol("█"),
+                Rect {
+                    x: right_chunks[1].x + right_chunks[1].width.saturating_sub(1),
+                    y: right_chunks[1].y + 1,
+                    width: 1,
+                    height: right_chunks[1].height.saturating_sub(2),
+                },
+                &mut scrollbar_state,
+            );
 
-            let scrollbar_area = Rect {
-                x: right_chunks[1].x + right_chunks[1].width.saturating_sub(1),
-                y: right_chunks[1].y + 1,
-                width: 1,
-                height: right_chunks[1].height.saturating_sub(2),
-            };
+            /* ── Help bar ── */
+            let show_open = selected_service
+                .as_ref()
+                .and_then(|s| find_db(&s.name, &db_map))
+                .map(|db| {
+                    is_ui_service(
+                        selected_service.as_ref().unwrap().name.as_str(),
+                        db,
+                    ) && db.studio_port.is_some()
+                })
+                .unwrap_or(false);
 
-            f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+            f.render_widget(
+                Paragraph::new(help_text(&focus, show_open, current_conn_str.is_some()))
+                    .style(Style::default().fg(Color::DarkGray))
+                    .block(Block::default().borders(Borders::TOP)),
+                root[1],
+            );
 
-            /* ---------------- HELP ---------------- */
-
-            let show_open = if let Some(svc) = selected_service {
-                if let Some(db) = find_db(&svc.name, &db_map) {
-                    is_ui_service(&svc.name, db) && db.studio_port.is_some()
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-
-            let help = Paragraph::new(help_text(&focus, show_open))
-                .style(Style::default().fg(Color::DarkGray))
-                .block(Block::default().borders(Borders::TOP));
-
-            f.render_widget(help, root[1]);
-
-            /* ---------------- POPUP (rendered last / on top) ---------------- */
+            /* ── Popup (on top of everything else) ── */
             if let Some(ref p) = popup {
                 render_popup(f, p, f.area());
             }
+
+            /* ── Toast (topmost layer) ── */
+            if let Some(ref t) = toast {
+                render_toast(f, t, f.area());
+            }
         })?;
 
-        // Persist areas for mouse handling
         services_list_area = new_services_area;
         logs_area = new_logs_area;
 
-        /* -------- INPUT -------- */
+        /* ================================================================
+           INPUT
+           ================================================================ */
 
         if event::poll(Duration::from_millis(100))? {
             match event::read()? {
-                /* ===== MOUSE ===== */
+                /* ── Mouse ── */
                 Event::Mouse(mouse) => {
-                    // Dismiss popup on any mouse event
+                    // Any click dismisses popup
                     if popup.is_some() {
                         if mouse.kind == MouseEventKind::Down(MouseButton::Left) {
                             popup = None;
@@ -693,16 +781,13 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
-                            let col = mouse.column;
-                            let row = mouse.row;
-
-                            // Click on services list?
-                            if let Some(idx) = click_service_index(col, row, services_list_area, &services_list) {
+                            let (col, row) = (mouse.column, mouse.row);
+                            if let Some(idx) =
+                                click_service_index(col, row, services_list_area, &services_list)
+                            {
                                 focus = Focus::Services;
                                 *selected_idx.lock().unwrap() = idx;
-                            }
-                            // Click on logs panel?
-                            else if point_in_rect(col, row, logs_area) {
+                            } else if point_in_rect(col, row, logs_area) {
                                 focus = Focus::Logs;
                             }
                         }
@@ -714,34 +799,30 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         MouseEventKind::ScrollDown => {
                             if focus == Focus::Logs {
-                                let services_snap = services.lock().unwrap().clone();
-                                let log_text = if current_idx < services_snap.len() {
+                                let snap = services.lock().unwrap().clone();
+                                let log_text = if current_idx < snap.len() {
                                     let logs = service_logs.lock().unwrap();
-                                    logs.get(&services_snap[current_idx].name)
+                                    logs.get(&snap[current_idx].name)
                                         .map(|l| l.join("\n"))
                                         .unwrap_or_default()
                                 } else {
                                     String::new()
                                 };
-                                let num_lines = log_text.lines().count();
-                                let height = logs_area.height.saturating_sub(2) as usize;
-                                let max_scroll = num_lines.saturating_sub(height);
-                                let new_offset = (scroll_offset + 3).min(max_scroll);
-                                scroll_offset = new_offset;
-                                if scroll_offset >= max_scroll {
-                                    auto_scroll = true;
-                                } else {
-                                    auto_scroll = false;
-                                }
+                                let max_scroll = log_text
+                                    .lines()
+                                    .count()
+                                    .saturating_sub(logs_area.height.saturating_sub(2) as usize);
+                                scroll_offset = (scroll_offset + 3).min(max_scroll);
+                                auto_scroll = scroll_offset >= max_scroll;
                             }
                         }
                         _ => {}
                     }
                 }
 
-                /* ===== KEYBOARD ===== */
+                /* ── Keyboard ── */
                 Event::Key(key) => {
-                    /* ---- Popup active ---- */
+                    /* ── Popup active — handle its own keys ── */
                     if let Some(ref mut p) = popup {
                         match key.code {
                             KeyCode::Left | KeyCode::Char('h') => p.selected = 0,
@@ -749,19 +830,17 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                             KeyCode::Tab => p.selected = (p.selected + 1) % 2,
                             KeyCode::Enter => {
                                 if p.selected == 0 {
-                                    // Confirmed
                                     let list = services.lock().unwrap().clone();
                                     let idx = *selected_idx.lock().unwrap();
                                     if let Some(svc) = list.get(idx) {
-                                        let action = if p.action == PopupAction::Start {
-                                            "start"
-                                        } else {
-                                            "stop"
+                                        let action = match p.action {
+                                            PopupAction::Start => "start",
+                                            PopupAction::Stop => "stop",
                                         };
-                                        let container_id = svc.container_id.clone();
+                                        let cid = svc.container_id.clone();
                                         tokio::spawn(async move {
                                             let _ = tokio::process::Command::new("docker")
-                                                .args([action, &container_id])
+                                                .args([action, &cid])
                                                 .output()
                                                 .await;
                                         });
@@ -769,61 +848,75 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                                 popup = None;
                             }
-                            KeyCode::Esc | KeyCode::Char('q') => {
-                                popup = None;
-                            }
+                            KeyCode::Esc | KeyCode::Char('q') => popup = None,
                             _ => {}
                         }
                         continue;
                     }
 
-                    /* ---- Normal keys ---- */
+                    /* ── Normal keys ── */
                     match key.code {
-                        KeyCode::Char('q') => {
-                            break;
-                        }
+                        KeyCode::Char('q') => break,
+
                         KeyCode::Left => focus = Focus::Services,
                         KeyCode::Right => focus = Focus::Logs,
 
+                        // ── Copy connection string to clipboard ─────
+                        KeyCode::Char('c') => {
+                            if let Some(ref conn) = current_conn_str {
+                                toast = Some(match copy_to_clipboard(conn) {
+                                    Ok(()) => Toast::new(
+                                        "Connection string copied to clipboard",
+                                        Duration::from_secs(3),
+                                    ),
+                                    Err(e) => Toast::new(
+                                        format!("Copy failed: {}", e),
+                                        Duration::from_secs(4),
+                                    ),
+                                });
+                            }
+                        }
+
+                        // ── Enter → start/stop confirm popup ────────
                         KeyCode::Enter => {
                             if focus == Focus::Services {
                                 let list = services.lock().unwrap().clone();
                                 let idx = *selected_idx.lock().unwrap();
                                 if let Some(svc) = list.get(idx) {
-                                    let action = if svc.status == "running" {
-                                        PopupAction::Stop
-                                    } else {
-                                        PopupAction::Start
-                                    };
                                     popup = Some(Popup {
                                         service_name: svc.name.clone(),
-                                        action,
+                                        action: if svc.status == "running" {
+                                            PopupAction::Stop
+                                        } else {
+                                            PopupAction::Start
+                                        },
                                         selected: 0,
                                     });
                                 }
                             }
                         }
 
+                        // ── Open UI in browser ───────────────────────
                         KeyCode::Char('o') => {
                             let list = services.lock().unwrap().clone();
                             let idx = *selected_idx.lock().unwrap();
-                            if let Some(service) = list.get(idx) {
-                                if let Some(db) = find_db(&service.name, &db_map) {
-                                    if is_ui_service(&service.name, db) {
+                            if let Some(svc) = list.get(idx) {
+                                if let Some(db) = find_db(&svc.name, &db_map) {
+                                    if is_ui_service(&svc.name, db) {
                                         if let Some(port) = &db.studio_port {
-                                            let url = format!("http://localhost:{}", port);
-                                            let _ = open::that(url);
+                                            let _ = open::that(format!("http://localhost:{}", port));
                                         }
                                     }
                                 }
                             }
                         }
 
+                        // ── Shell into container ─────────────────────
                         KeyCode::Char('s') => {
                             let list = services.lock().unwrap().clone();
                             let idx = *selected_idx.lock().unwrap();
-                            if let Some(service) = list.get(idx) {
-                                if !service.container_id.is_empty() {
+                            if let Some(svc) = list.get(idx) {
+                                if !svc.container_id.is_empty() {
                                     disable_raw_mode()?;
                                     execute!(
                                         terminal.backend_mut(),
@@ -835,7 +928,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                                     terminal.show_cursor()?;
                                     io::stdout().flush()?;
 
-                                    let _ = open_shell(&service.container_id).await;
+                                    let _ = open_shell(&svc.container_id).await;
 
                                     enable_raw_mode()?;
                                     execute!(
@@ -849,6 +942,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
 
+                        // ── Scroll / navigation ──────────────────────
                         KeyCode::Down | KeyCode::Char('j') => {
                             if focus == Focus::Services {
                                 let len = services.lock().unwrap().len();
@@ -907,7 +1001,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Cleanup on exit
+    // Clean up terminal on exit
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -918,9 +1012,9 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/* ============================================================
-   DOCKER HELPERS (unchanged from original)
-   ============================================================ */
+/* ================================================================
+   DOCKER HELPERS
+   ================================================================ */
 
 async fn get_compose_project_name() -> Result<String, Box<dyn std::error::Error>> {
     let output = tokio::process::Command::new("docker-compose")
@@ -959,7 +1053,7 @@ async fn get_docker_services(
         .await?;
 
     let result = String::from_utf8(output.stdout)?;
-    let services: Vec<Service> = result
+    Ok(result
         .lines()
         .filter(|line| !line.is_empty())
         .map(|line| {
@@ -971,9 +1065,7 @@ async fn get_docker_services(
                 image: parts.get(3).unwrap_or(&"unknown").to_string(),
             }
         })
-        .collect();
-
-    Ok(services)
+        .collect())
 }
 
 fn parse_status(status_str: &str) -> String {
