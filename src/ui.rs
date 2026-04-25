@@ -39,6 +39,93 @@ enum Focus {
     Logs,
 }
 
+struct DevIdentity {
+    username: &'static str,
+    password: &'static str,
+}
+
+fn dev_identity(db_type: &DbType) -> Option<DevIdentity> {
+    match db_type {
+        DbType::Rdbms => Some(DevIdentity {
+            username: "postgres",
+            password: "postgres",
+        }),
+        DbType::DocumentDb => Some(DevIdentity {
+            username: "mongo",
+            password: "mongo",
+        }),
+        DbType::MessageQueue => Some(DevIdentity {
+            username: "user",
+            password: "password",
+        }),
+        DbType::Cache => None,
+    }
+}
+
+fn build_service_panel(
+    service: &Service,
+    db: Option<&DatabaseConfig>,
+) -> Vec<Line<'static>> {
+    let mut lines = vec![];
+
+    if let Some(db) = db {
+        if db.studio_port.is_some() {
+            let port = db.studio_port.clone().unwrap();
+
+            lines.push(Line::from(vec![
+                Span::styled("🌐 UI: ", Style::default().fg(Color::Cyan)),
+                Span::styled(format!("http://localhost:{}", port), Style::default().fg(Color::Yellow)),
+            ]));
+
+            if let Some(identity) = dev_identity(&db.db_type) {
+                lines.push(Line::from(vec![
+                    Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
+                    Span::raw(identity.username),
+                ]));
+
+                lines.push(Line::from(vec![
+                    Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
+                    Span::raw(identity.password),
+                ]));
+            } else {
+                lines.push(Line::from("🔒 no auth required"));
+            }
+
+            lines.push(Line::from(vec![
+                Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
+                Span::raw("press 'o'"),
+            ]));
+        } else {
+            // non-UI service → connection string
+            let conn = match dev_identity(&db.db_type) {
+                Some(identity) => format!(
+                    "{}://{}:{}@localhost:{}/{}",
+                    db.db_type.to_string().to_lowercase(),
+                    identity.username,
+                    identity.password,
+                    db.port,
+                    db.name
+                ),
+                None => format!(
+                    "{}://localhost:{}/{}",
+                    db.db_type.to_string().to_lowercase(),
+                    db.port,
+                    db.name
+                ),
+            };
+
+            lines.push(Line::from(vec![
+                Span::styled("🔌 conn: ", Style::default().fg(Color::Cyan)),
+                Span::styled(conn, Style::default().fg(Color::Yellow)),
+            ]));
+        }
+    } else {
+        lines.push(Line::from("No DB config found"));
+    }
+
+    lines
+}
+
 /* ---------------- HELP ---------------- */
 
 fn help_text(focus: &Focus, show_open: bool) -> String {
@@ -184,15 +271,21 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| {
             let root = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Min(0), Constraint::Length(2)])
+                .constraints([
+                    Constraint::Min(0),
+                    Constraint::Length(2),
+                ])
                 .split(f.area());
 
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+                .constraints([
+                    Constraint::Percentage(30),
+                    Constraint::Percentage(70),
+                ])
                 .split(root[0]);
 
-            /* -------- SERVICES -------- */
+            /* ---------------- SERVICES ---------------- */
 
             let items: Vec<ListItem> = services_list
                 .iter()
@@ -204,8 +297,9 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     let mut base_style = Style::default().fg(Color::Gray);
 
                     if is_selected {
-                        base_style =
-                            base_style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
+                        base_style = base_style
+                            .bg(Color::DarkGray)
+                            .add_modifier(Modifier::BOLD);
                     }
 
                     let (icon, icon_color, port_line) = if let Some(db) = db_info {
@@ -219,9 +313,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         };
 
                         let port = if is_ui_service(&service.name, db) {
-                            db.studio_port
-                                .as_ref()
-                                .map(|p| format!("port: {}", p))
+                            db.studio_port.as_ref().map(|p| format!("port: {}", p))
                         } else {
                             None
                         };
@@ -233,20 +325,15 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
                     let mut lines = vec![];
 
-                    // LINE 1
                     lines.push(Line::from(vec![
                         Span::styled(format!("{} ", icon), Style::default().fg(icon_color)),
-                        Span::styled(
-                            format!("{} ", service.name),
-                            base_style,
-                        ),
+                        Span::styled(format!("{} ", service.name), base_style),
                         Span::styled(
                             format!("[{}]", service.status),
                             Style::default().fg(status_color(&service.status)),
                         ),
                     ]));
 
-                    // LINE 2 (image)
                     if !service.image.is_empty() {
                         lines.push(Line::from(Span::styled(
                             format!("  img: {}", service.image),
@@ -254,7 +341,6 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         )));
                     }
 
-                    // LINE 3 (port)
                     if let Some(port) = port_line {
                         lines.push(Line::from(Span::styled(
                             format!("  {}", port),
@@ -277,7 +363,39 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
             f.render_widget(List::new(items).block(services_block), chunks[0]);
 
-            /* -------- LOGS -------- */
+            /* ---------------- RIGHT PANEL SPLIT ---------------- */
+
+            let right_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(6), // Service panel fixed height
+                    Constraint::Min(0),    // logs
+                ])
+                .split(chunks[1]);
+
+            /* ---------------- SERVICE INFO PANEL ---------------- */
+
+            let selected_service = services_list.get(current_idx);
+
+            let panel_lines = if let Some(service) = selected_service {
+                let db = find_db(&service.name, &db_map);
+                build_service_panel(service, db)
+            } else {
+                vec![Line::from("No service selected")]
+            };
+
+            let panel = Paragraph::new(panel_lines)
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Service Info")
+                        .border_style(Style::default().fg(Color::Blue)),
+                )
+                .wrap(Wrap { trim: true });
+
+            f.render_widget(panel, right_chunks[0]);
+
+            /* ---------------- LOGS ---------------- */
 
             let logs_block = Block::default()
                 .borders(Borders::ALL)
@@ -288,53 +406,43 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     Style::default()
                 });
 
-            if !services_list.is_empty() && current_idx < services_list.len() {
+            let log_text = if !services_list.is_empty() && current_idx < services_list.len() {
                 let logs = service_logs.lock().unwrap();
                 let selected = &services_list[current_idx].name;
 
-                let log_text = logs
-                    .get(selected)
+                logs.get(selected)
                     .map(|l| l.join("\n"))
-                    .unwrap_or_else(|| "Loading logs...".to_string());
-
-                let num_lines = log_text.lines().count() as u16;
-                let height = chunks[1].height.saturating_sub(2);
-                let max_scroll = num_lines.saturating_sub(height);
-
-                if auto_scroll {
-                    scroll_offset = max_scroll;
-                } else {
-                    scroll_offset = scroll_offset.min(max_scroll);
-                    if scroll_offset >= max_scroll {
-                        auto_scroll = true;
-                    }
-                }
-
-                f.render_widget(
-                    Paragraph::new(log_text)
-                        .block(logs_block)
-                        .wrap(Wrap { trim: false })
-                        .scroll((scroll_offset, 0)),
-                    chunks[1],
-                );
+                    .unwrap_or_else(|| "Loading logs...".to_string())
             } else {
-                f.render_widget(
-                    Paragraph::new("No services").block(logs_block),
-                    chunks[1],
-                );
+                "No services".to_string()
+            };
+
+            let num_lines = log_text.lines().count() as u16;
+            let height = right_chunks[1].height.saturating_sub(2);
+            let max_scroll = num_lines.saturating_sub(height);
+
+            if auto_scroll {
+                scroll_offset = max_scroll;
+            } else {
+                scroll_offset = scroll_offset.min(max_scroll);
+                if scroll_offset >= max_scroll {
+                    auto_scroll = true;
+                }
             }
 
-            /* -------- HELP -------- */
+            f.render_widget(
+                Paragraph::new(log_text)
+                    .block(logs_block)
+                    .wrap(Wrap { trim: false })
+                    .scroll((scroll_offset, 0)),
+                right_chunks[1],
+            );
 
-            let show_open = if !services_list.is_empty() && current_idx < services_list.len() {
-                let svc = &services_list[current_idx];
+            /* ---------------- HELP ---------------- */
 
+            let show_open = if let Some(svc) = selected_service {
                 if let Some(db) = find_db(&svc.name, &db_map) {
-                    if is_ui_service(&svc.name, db) {
-                        db.studio_port.is_some()
-                    } else {
-                        false
-                    }
+                    is_ui_service(&svc.name, db) && db.studio_port.is_some()
                 } else {
                     false
                 }
