@@ -1,10 +1,17 @@
 use crossterm::{
-    cursor::MoveTo, event::{self, Event, KeyCode}, execute, terminal::{Clear, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode, ClearType}
+    cursor::MoveTo,
+    event::{self, Event, KeyCode},
+    execute,
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Terminal,
 };
@@ -23,6 +30,7 @@ struct Service {
     name: String,
     container_id: String,
     status: String,
+    image: String,
 }
 
 #[derive(PartialEq)]
@@ -33,14 +41,21 @@ enum Focus {
 
 /* ---------------- HELP ---------------- */
 
-fn help_text(focus: &Focus) -> String {
+fn help_text(focus: &Focus, show_open: bool) -> String {
     match focus {
-        Focus::Services => "↑/↓ select | ←/→ switch | s shell | o open UI | q quit",
-        Focus::Logs => "PgUp start | PgDn follow | ↑/↓ scroll | j/k scroll | g/G jump | ←/→ switch",
+        Focus::Services => {
+            if show_open {
+                "↑/↓ select | ←/→ switch | s shell | o open UI | q quit"
+            } else {
+                "↑/↓ select | ←/→ switch | s shell | q quit"
+            }
+        }
+        Focus::Logs => {
+            "PgUp start | PgDn follow | ↑/↓ scroll | j/k scroll | g/G jump | ←/→ switch"
+        }
     }
     .to_string()
 }
-
 /* ---------------- ICONS ---------------- */
 
 fn db_icon(db_type: &DbType) -> &'static str {
@@ -83,6 +98,18 @@ fn is_ui_service(service_name: &str, db: &DatabaseConfig) -> bool {
     }
 }
 
+/* ---------------- STATUS COLOR ---------------- */
+
+fn status_color(status: &str) -> Color {
+    match status {
+        "running" => Color::Green,
+        "exited" => Color::Red,
+        "restarting" => Color::Yellow,
+        "paused" => Color::Magenta,
+        _ => Color::DarkGray,
+    }
+}
+
 /* ---------------- MAIN ---------------- */
 
 pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
@@ -94,7 +121,6 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
     let project_name = get_compose_project_name().await?;
 
-    /* -------- LOAD CONFIG -------- */
     let db_config = read_db_config("db-compose.toml")?;
 
     let db_map: HashMap<String, DatabaseConfig> = db_config
@@ -173,43 +199,70 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 .enumerate()
                 .map(|(i, service)| {
                     let db_info = find_db(&service.name, &db_map);
+                    let is_selected = i == current_idx;
 
-                    let mut style = if let Some(db) = db_info {
-                        if is_ui_service(&service.name, db) {
-                            Style::default().fg(Color::Cyan)
-                        } else {
-                            Style::default().fg(Color::Gray)
-                        }
-                    } else {
-                        Style::default().fg(Color::Gray)
-                    };
+                    let mut base_style = Style::default().fg(Color::Gray);
 
-                    if i == current_idx {
-                        style = style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
+                    if is_selected {
+                        base_style =
+                            base_style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
                     }
 
-                    let (icon, extra) = if let Some(db) = db_info {
+                    let (icon, icon_color, port_line) = if let Some(db) = db_info {
                         let icon = db_icon(&db.db_type);
 
-                        let studio = if is_ui_service(&service.name, db) {
-                            db.studio_port
-                                .as_ref()
-                                .map(|p| format!(" | studio: {}", p))
-                                .unwrap_or_default()
-                        } else {
-                            "".to_string()
+                        let icon_color = match db.db_type {
+                            DbType::Rdbms => Color::Blue,
+                            DbType::Cache => Color::Yellow,
+                            DbType::MessageQueue => Color::Magenta,
+                            DbType::DocumentDb => Color::Green,
                         };
 
-                        (icon, studio)
+                        let port = if is_ui_service(&service.name, db) {
+                            db.studio_port
+                                .as_ref()
+                                .map(|p| format!("port: {}", p))
+                        } else {
+                            None
+                        };
+
+                        (icon, icon_color, port)
                     } else {
-                        ("●", "".to_string())
+                        ("●", Color::DarkGray, None)
                     };
 
-                    ListItem::new(format!(
-                        "{} {} [{}]{}",
-                        icon, service.name, service.status, extra
-                    ))
-                    .style(style)
+                    let mut lines = vec![];
+
+                    // LINE 1
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("{} ", icon), Style::default().fg(icon_color)),
+                        Span::styled(
+                            format!("{} ", service.name),
+                            base_style,
+                        ),
+                        Span::styled(
+                            format!("[{}]", service.status),
+                            Style::default().fg(status_color(&service.status)),
+                        ),
+                    ]));
+
+                    // LINE 2 (image)
+                    if !service.image.is_empty() {
+                        lines.push(Line::from(Span::styled(
+                            format!("  img: {}", service.image),
+                            Style::default().fg(Color::DarkGray),
+                        )));
+                    }
+
+                    // LINE 3 (port)
+                    if let Some(port) = port_line {
+                        lines.push(Line::from(Span::styled(
+                            format!("  {}", port),
+                            Style::default().fg(Color::Cyan),
+                        )));
+                    }
+
+                    ListItem::new(lines).style(base_style)
                 })
                 .collect();
 
@@ -273,7 +326,23 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
             /* -------- HELP -------- */
 
-            let help = Paragraph::new(help_text(&focus))
+            let show_open = if !services_list.is_empty() && current_idx < services_list.len() {
+                let svc = &services_list[current_idx];
+
+                if let Some(db) = find_db(&svc.name, &db_map) {
+                    if is_ui_service(&svc.name, db) {
+                        db.studio_port.is_some()
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            let help = Paragraph::new(help_text(&focus, show_open))
                 .style(Style::default().fg(Color::DarkGray))
                 .block(Block::default().borders(Borders::TOP));
 
@@ -284,123 +353,35 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-
-                // ---------- GLOBAL KEYS ----------
                 match key.code {
                     KeyCode::Char('q') => break Ok(()),
+                    KeyCode::Left => focus = Focus::Services,
+                    KeyCode::Right => focus = Focus::Logs,
 
-                    KeyCode::Left => {
-                        focus = Focus::Services;
-                        continue;
-                    }
-
-                    KeyCode::Right => {
-                        focus = Focus::Logs;
-                        continue;
-                    }
-
-                    KeyCode::Char('o') => {
-                        let list = services.lock().unwrap().clone();
-                        let idx = *selected_idx.lock().unwrap();
-
-                        if let Some(service) = list.get(idx) {
-                            if let Some(db) = find_db(&service.name, &db_map) {
-                                if is_ui_service(&service.name, db) {
-                                    if let Some(port) = &db.studio_port {
-                                        let url = format!("http://localhost:{}", port);
-                                        let _ = open::that(url);
-                                    }
-                                }
+                    KeyCode::Down => {
+                        if focus == Focus::Services {
+                            let len = services.lock().unwrap().len();
+                            if len > 0 {
+                                let mut idx = selected_idx.lock().unwrap();
+                                *idx = (*idx + 1).min(len - 1);
                             }
+                        } else {
+                            auto_scroll = false;
+                            scroll_offset += 1;
                         }
-                        continue;
                     }
 
-                    KeyCode::Char('s') => {
-                        let list = services.lock().unwrap().clone();
-                        let idx = *selected_idx.lock().unwrap();
-
-                        if let Some(service) = list.get(idx) {
-                            if !service.container_id.is_empty() {
-                                disable_raw_mode()?;
-                                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-                                terminal.show_cursor()?;
-
-                                let mut stdout = io::stdout();
-                                execute!(
-                                    stdout,
-                                    Clear(ClearType::All),
-                                    MoveTo(0, 0),
-                                )?;
-
-                                let _ = open_shell(&service.container_id).await;
-
-                                enable_raw_mode()?;
-                                execute!(terminal.backend_mut(), EnterAlternateScreen)?;
-                                terminal.hide_cursor()?;
-                                terminal.clear()?;
-                            }
+                    KeyCode::Up => {
+                        if focus == Focus::Services {
+                            let mut idx = selected_idx.lock().unwrap();
+                            *idx = idx.saturating_sub(1);
+                        } else {
+                            auto_scroll = false;
+                            scroll_offset = scroll_offset.saturating_sub(1);
                         }
-                        continue;
                     }
 
                     _ => {}
-                }
-
-                // ---------- FOCUS-SPECIFIC ----------
-                match focus {
-                    Focus::Services => {
-                        match key.code {
-                            KeyCode::Down => {
-                                let len = services.lock().unwrap().len();
-                                if len > 0 {
-                                    let mut idx = selected_idx.lock().unwrap();
-                                    *idx = (*idx + 1).min(len - 1);
-                                }
-                            }
-
-                            KeyCode::Up => {
-                                let mut idx = selected_idx.lock().unwrap();
-                                *idx = idx.saturating_sub(1);
-                            }
-
-                            _ => {}
-                        }
-                    }
-
-                    Focus::Logs => {
-                        match key.code {
-                            KeyCode::PageUp => {
-                                auto_scroll = false;
-                                scroll_offset = 0;
-                            }
-
-                            KeyCode::PageDown => {
-                                auto_scroll = true;
-                            }
-
-                            KeyCode::Down | KeyCode::Char('j') => {
-                                auto_scroll = false;
-                                scroll_offset += 1;
-                            }
-
-                            KeyCode::Up | KeyCode::Char('k') => {
-                                auto_scroll = false;
-                                scroll_offset = scroll_offset.saturating_sub(1);
-                            }
-
-                            KeyCode::Char('g') => {
-                                auto_scroll = false;
-                                scroll_offset = 0;
-                            }
-
-                            KeyCode::Char('G') => {
-                                auto_scroll = true;
-                            }
-
-                            _ => {}
-                        }
-                    }
                 }
             }
         }
@@ -439,7 +420,7 @@ async fn get_docker_services(project_name: &str) -> Result<Vec<Service>, Box<dyn
             "--filter",
             &format!("label=com.docker.compose.project={}", project_name),
             "--format",
-            "{{.ID}}|{{.Label \"com.docker.compose.service\"}}|{{.Status}}",
+            "{{.ID}}|{{.Label \"com.docker.compose.service\"}}|{{.Status}}|{{.Image}}",
         ])
         .output()
         .await?;
@@ -454,6 +435,7 @@ async fn get_docker_services(project_name: &str) -> Result<Vec<Service>, Box<dyn
                 container_id: parts.get(0).unwrap_or(&"").to_string(),
                 name: parts.get(1).unwrap_or(&"unknown").to_string(),
                 status: parse_status(parts.get(2).unwrap_or(&"unknown")),
+                image: parts.get(3).unwrap_or(&"unknown").to_string(),
             }
         })
         .collect();
