@@ -69,14 +69,129 @@ fn build_service_panel(
     let mut lines = vec![];
 
     if let Some(db) = db {
-        if db.studio_port.is_some() {
-            let port = db.studio_port.clone().unwrap();
+        let is_ui = is_ui_service(&service.name, db);
+        let is_db = is_db_service(&service.name, db);
+
+        // MessageQueue is special - it provides BOTH UI and service in one pod
+        if db.db_type == DbType::MessageQueue && is_ui {
+            // Show UI portal
+            if let Some(port) = &db.studio_port {
+                lines.push(Line::from(vec![
+                    Span::styled("🌐 UI: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(format!("http://localhost:{}", port), Style::default().fg(Color::Yellow)),
+                ]));
+            }
+
+            // Show connection string
+            if let Some(identity) = dev_identity(&db.db_type) {
+                let conn = format!(
+                    "amqp://{}:{}@localhost:{}",
+                    identity.username,
+                    identity.password,
+                    db.port
+                );
+
+                lines.push(Line::from(vec![
+                    Span::styled("🔌 conn: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(conn, Style::default().fg(Color::Yellow)),
+                ]));
+
+                // Show credentials
+                lines.push(Line::from(vec![
+                    Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
+                    Span::raw(identity.username),
+                ]));
+
+                lines.push(Line::from(vec![
+                    Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
+                    Span::raw(identity.password),
+                ]));
+
+                lines.push(Line::from(vec![
+                    Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
+                    Span::raw("press 'o'"),
+                ]));
+            }
+        } else if is_ui {
+            // UI services (runtime, mongo-gui)
+            if let Some(port) = &db.studio_port {
+                lines.push(Line::from(vec![
+                    Span::styled("🌐 UI: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(format!("http://localhost:{}", port), Style::default().fg(Color::Yellow)),
+                ]));
+
+                // RDBMS runtime has no auth, others do
+                if db.db_type == DbType::Rdbms {
+                    lines.push(Line::from("🔓 no auth required"));
+                } else if let Some(identity) = dev_identity(&db.db_type) {
+                    lines.push(Line::from(vec![
+                        Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
+                        Span::raw(identity.username),
+                    ]));
+
+                    lines.push(Line::from(vec![
+                        Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
+                        Span::raw(identity.password),
+                    ]));
+                }
+
+                lines.push(Line::from(vec![
+                    Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
+                    Span::raw("press 'o'"),
+                ]));
+            }
+        } else if is_db {
+            // Database services (IAM-db, estonia-redis, etc.) - show connection string
+            let conn = match db.db_type {
+                DbType::Rdbms => {
+                    if let Some(identity) = dev_identity(&db.db_type) {
+                        format!(
+                            "postgresql://{}:{}@localhost:{}/{}",
+                            identity.username,
+                            identity.password,
+                            db.port,
+                            service.name  // Use actual service name like "IAM-db"
+                        )
+                    } else {
+                        format!("postgresql://localhost:{}/{}", db.port, service.name)
+                    }
+                }
+                DbType::DocumentDb => {
+                    if let Some(identity) = dev_identity(&db.db_type) {
+                        format!(
+                            "mongodb://{}:{}@localhost:{}",
+                            identity.username,
+                            identity.password,
+                            db.port
+                        )
+                    } else {
+                        format!("mongodb://localhost:{}", db.port)
+                    }
+                }
+                DbType::Cache => {
+                    format!("redis://localhost:{}", db.port)
+                }
+                DbType::MessageQueue => {
+                    // This case shouldn't happen as messagequeue is UI service
+                    if let Some(identity) = dev_identity(&db.db_type) {
+                        format!(
+                            "amqp://{}:{}@localhost:{}",
+                            identity.username,
+                            identity.password,
+                            db.port
+                        )
+                    } else {
+                        format!("amqp://localhost:{}", db.port)
+                    }
+                }
+            };
 
             lines.push(Line::from(vec![
-                Span::styled("🌐 UI: ", Style::default().fg(Color::Cyan)),
-                Span::styled(format!("http://localhost:{}", port), Style::default().fg(Color::Yellow)),
+                Span::styled("🔌 conn: ", Style::default().fg(Color::Cyan)),
+                Span::styled(conn, Style::default().fg(Color::Yellow)),
             ]));
 
+            // Show credentials for database services
             if let Some(identity) = dev_identity(&db.db_type) {
                 lines.push(Line::from(vec![
                     Span::styled("👤 user: ", Style::default().fg(Color::Gray)),
@@ -87,37 +202,9 @@ fn build_service_panel(
                     Span::styled("🔑 pass: ", Style::default().fg(Color::Gray)),
                     Span::raw(identity.password),
                 ]));
-            } else {
-                lines.push(Line::from("🔒 no auth required"));
             }
-
-            lines.push(Line::from(vec![
-                Span::styled("⚡ open: ", Style::default().fg(Color::Gray)),
-                Span::raw("press 'o'"),
-            ]));
         } else {
-            // non-UI service → connection string
-            let conn = match dev_identity(&db.db_type) {
-                Some(identity) => format!(
-                    "{}://{}:{}@localhost:{}/{}",
-                    db.db_type.to_string().to_lowercase(),
-                    identity.username,
-                    identity.password,
-                    db.port,
-                    db.name
-                ),
-                None => format!(
-                    "{}://localhost:{}/{}",
-                    db.db_type.to_string().to_lowercase(),
-                    db.port,
-                    db.name
-                ),
-            };
-
-            lines.push(Line::from(vec![
-                Span::styled("🔌 conn: ", Style::default().fg(Color::Cyan)),
-                Span::styled(conn, Style::default().fg(Color::Yellow)),
-            ]));
+            lines.push(Line::from("No connection info available"));
         }
     } else {
         lines.push(Line::from("No DB config found"));
@@ -182,6 +269,20 @@ fn is_ui_service(service_name: &str, db: &DatabaseConfig) -> bool {
         DbType::DocumentDb => name == format!("{}-mongo-gui", base),
         DbType::MessageQueue => name == format!("{}-messagequeue", base),
         DbType::Cache => false,
+    }
+}
+
+/* ---------------- DB SERVICE CHECK ---------------- */
+
+fn is_db_service(service_name: &str, db: &DatabaseConfig) -> bool {
+    let name = service_name.to_lowercase();
+    let base = db.name.to_lowercase();
+
+    match db.db_type {
+        DbType::Rdbms => name == format!("{}-db", base),
+        DbType::DocumentDb => name == format!("{}-mongodb", base),
+        DbType::MessageQueue => false, // messagequeue service is both UI and connection
+        DbType::Cache => name == format!("{}-redis", base),
     }
 }
 
@@ -297,9 +398,18 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                     let mut base_style = Style::default().fg(Color::Gray);
 
                     if is_selected {
-                        base_style = base_style
-                            .bg(Color::DarkGray)
-                            .add_modifier(Modifier::BOLD);
+                        // Yellow background when focus is on Services panel
+                        // Gray background when focus is on Logs panel
+                        if focus == Focus::Services {
+                            base_style = base_style
+                                .bg(Color::Yellow)
+                                .fg(Color::Black)
+                                .add_modifier(Modifier::BOLD);
+                        } else {
+                            base_style = base_style
+                                .bg(Color::DarkGray)
+                                .add_modifier(Modifier::BOLD);
+                        }
                     }
 
                     let (icon, icon_color, port_line) = if let Some(db) = db_info {
@@ -513,7 +623,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         continue;
                     }
 
-                    KeyCode::Down => {
+                    KeyCode::Down | KeyCode::Char('j') => {
                         if focus == Focus::Services {
                             let len = services.lock().unwrap().len();
                             if len > 0 {
@@ -526,13 +636,39 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
 
-                    KeyCode::Up => {
+                    KeyCode::Up | KeyCode::Char('k') => {
                         if focus == Focus::Services {
                             let mut idx = selected_idx.lock().unwrap();
                             *idx = idx.saturating_sub(1);
                         } else {
                             auto_scroll = false;
                             scroll_offset = scroll_offset.saturating_sub(1);
+                        }
+                    }
+
+                    KeyCode::PageDown => {
+                        if focus == Focus::Logs {
+                            auto_scroll = true;
+                        }
+                    }
+
+                    KeyCode::PageUp => {
+                        if focus == Focus::Logs {
+                            auto_scroll = false;
+                            scroll_offset = 0;
+                        }
+                    }
+
+                    KeyCode::Char('g') => {
+                        if focus == Focus::Logs {
+                            auto_scroll = false;
+                            scroll_offset = 0;
+                        }
+                    }
+
+                    KeyCode::Char('G') => {
+                        if focus == Focus::Logs {
+                            auto_scroll = true;
                         }
                     }
 
