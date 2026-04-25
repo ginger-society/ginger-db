@@ -90,7 +90,6 @@ enum BootStatus {
 struct BootService {
     name: String,
     status: BootStatus,
-    /// raw docker status string e.g. "Up 3 seconds"
     raw_status: String,
 }
 
@@ -170,7 +169,6 @@ async fn poll_service_statuses(
         .collect()
 }
 
-/// Pull the list of service names declared in docker-compose.yml
 async fn get_declared_services() -> Vec<String> {
     let output = tokio::process::Command::new("docker-compose")
         .args(&["config", "--services"])
@@ -201,8 +199,6 @@ fn spinner_frame(tick: usize) -> &'static str {
    STARTUP TUI
    ================================================================ */
 
-/// Shows a boot-progress TUI until all services are running (or user quits).
-/// Returns Ok(true) if all services came up, Ok(false) if user pressed q.
 async fn run_startup_tui(
     project_name: String,
     services_snapshot: Arc<Mutex<Vec<BootService>>>,
@@ -218,7 +214,7 @@ async fn run_startup_tui(
 
     let result = loop {
         let services = services_snapshot.lock().unwrap().clone();
-        let total = services.len();
+        let total   = services.len();
         let running = services.iter().filter(|s| s.status == BootStatus::Running).count();
         let failed  = services.iter().filter(|s| s.status == BootStatus::Failed).count();
 
@@ -235,17 +231,11 @@ async fn run_startup_tui(
             ("Starting services…", Color::Cyan)
         };
 
-        let ratio = if total == 0 {
-            0.0
-        } else {
-            running as f64 / total as f64
-        };
-
+        let ratio = if total == 0 { 0.0 } else { running as f64 / total as f64 };
         let elapsed = started_at.elapsed().as_secs();
 
         terminal.draw(|f| {
             let area = f.area();
-
             let root = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -256,7 +246,6 @@ async fn run_startup_tui(
                 ])
                 .split(area);
 
-            /* ── Header ── */
             let header = Paragraph::new(Line::from(vec![
                 Span::styled(
                     " ginger-db ",
@@ -277,24 +266,14 @@ async fn run_startup_tui(
             ));
             f.render_widget(header, root[0]);
 
-            /* ── Progress bar ── */
-            let bar_color = if any_fail {
-                Color::Red
-            } else if all_up {
-                Color::Green
-            } else {
-                Color::Cyan
-            };
-
+            let bar_color = if any_fail { Color::Red } else if all_up { Color::Green } else { Color::Cyan };
             let gauge = Gauge::default()
                 .block(Block::default().borders(Borders::ALL).title(" Progress "))
                 .gauge_style(Style::default().fg(bar_color).bg(Color::DarkGray))
                 .ratio(ratio)
                 .label(format!("{}/{} running", running, total));
-
             f.render_widget(gauge, root[1]);
 
-            /* ── Service list ── */
             let items: Vec<ListItem> = services
                 .iter()
                 .map(|svc| {
@@ -304,52 +283,41 @@ async fn run_startup_tui(
                         BootStatus::Starting => (spinner_frame(tick), Color::Cyan),
                         BootStatus::Waiting  => ("○", Color::DarkGray),
                     };
-
                     let raw_display = if svc.raw_status.is_empty() {
                         "waiting for docker…".to_string()
                     } else {
                         svc.raw_status.clone()
                     };
-
                     ListItem::new(Line::from(vec![
                         Span::styled(
                             format!("  {} ", icon),
                             Style::default().fg(color).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(
-                            format!("{:<30}", svc.name),
-                            Style::default().fg(Color::White),
-                        ),
+                        Span::styled(format!("{:<30}", svc.name), Style::default().fg(Color::White)),
                         Span::styled(raw_display, Style::default().fg(Color::DarkGray)),
                     ]))
                 })
                 .collect();
 
-            let list_title = format!(" Services ({}/{}) ", running, total);
             f.render_widget(
                 List::new(items).block(
                     Block::default()
                         .borders(Borders::ALL)
-                        .title(list_title)
+                        .title(format!(" Services ({}/{}) ", running, total))
                         .border_style(Style::default().fg(Color::Blue)),
                 ),
                 root[2],
             );
 
-            /* ── Footer ── */
             let footer = Paragraph::new(if all_up {
                 Line::from(Span::styled(
                     "  All services up — switching to UI…",
                     Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
                 ))
             } else {
-                Line::from(Span::styled(
-                    "  q  abort",
-                    Style::default().fg(Color::DarkGray),
-                ))
+                Line::from(Span::styled("  q  abort", Style::default().fg(Color::DarkGray)))
             })
             .block(Block::default().borders(Borders::TOP));
-
             f.render_widget(footer, root[3]);
         })?;
 
@@ -371,13 +339,8 @@ async fn run_startup_tui(
     };
 
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
-
     result
 }
 
@@ -385,17 +348,14 @@ async fn run_startup_tui(
    SHUTDOWN TUI
    ================================================================ */
 
-/// Returns true when a service's raw docker status means it is no longer running.
 fn is_stopped(raw: &str) -> bool {
     if raw.is_empty() {
-        return true; // container removed from docker ps entirely
+        return true; // removed from docker ps entirely
     }
     let lower = raw.to_lowercase();
     lower.contains("exit") || lower.contains("dead") || lower.contains("remov")
 }
 
-/// Shows a shutdown-progress TUI until all services are stopped / removed,
-/// then exits cleanly. A hard timeout of 120 s prevents hanging forever.
 async fn run_shutdown_tui(
     project_name: String,
     services: Vec<String>,
@@ -422,7 +382,6 @@ async fn run_shutdown_tui(
         let finished  = all_done || timed_out;
 
         let ratio = if total == 0 { 1.0 } else { stopped as f64 / total as f64 };
-
         let phase = if finished {
             ("All services stopped ✓", Color::Green)
         } else {
@@ -431,7 +390,6 @@ async fn run_shutdown_tui(
 
         terminal.draw(|f| {
             let area = f.area();
-
             let root = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -442,7 +400,6 @@ async fn run_shutdown_tui(
                 ])
                 .split(area);
 
-            /* ── Header ── */
             let header = Paragraph::new(Line::from(vec![
                 Span::styled(
                     " ginger-db ",
@@ -452,29 +409,14 @@ async fn run_shutdown_tui(
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::raw("  "),
-                Span::styled(
-                    phase.0,
-                    Style::default().fg(phase.1).add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(
-                    format!("  ({}s)", elapsed),
-                    Style::default().fg(Color::DarkGray),
-                ),
+                Span::styled(phase.0, Style::default().fg(phase.1).add_modifier(Modifier::BOLD)),
+                Span::styled(format!("  ({}s)", elapsed), Style::default().fg(Color::DarkGray)),
             ]))
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Yellow)),
-            );
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow)));
             f.render_widget(header, root[0]);
 
-            /* ── Progress bar ── */
             let gauge = Gauge::default()
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .title(" Shutdown progress "),
-                )
+                .block(Block::default().borders(Borders::ALL).title(" Shutdown progress "))
                 .gauge_style(
                     Style::default()
                         .fg(if finished { Color::Green } else { Color::Yellow })
@@ -484,7 +426,6 @@ async fn run_shutdown_tui(
                 .label(format!("{}/{} stopped", stopped, total));
             f.render_widget(gauge, root[1]);
 
-            /* ── Service list ── */
             let items: Vec<ListItem> = statuses
                 .iter()
                 .map(|svc| {
@@ -494,22 +435,17 @@ async fn run_shutdown_tui(
                     } else {
                         (spinner_frame(tick), Color::Yellow)
                     };
-
                     let raw_display = if svc.raw_status.is_empty() {
                         "removed".to_string()
                     } else {
                         svc.raw_status.clone()
                     };
-
                     ListItem::new(Line::from(vec![
                         Span::styled(
                             format!("  {} ", icon),
                             Style::default().fg(color).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(
-                            format!("{:<30}", svc.name),
-                            Style::default().fg(Color::White),
-                        ),
+                        Span::styled(format!("{:<30}", svc.name), Style::default().fg(Color::White)),
                         Span::styled(raw_display, Style::default().fg(Color::DarkGray)),
                     ]))
                 })
@@ -525,7 +461,6 @@ async fn run_shutdown_tui(
                 root[2],
             );
 
-            /* ── Footer ── */
             let footer_text = if finished {
                 "  Shutdown complete — goodbye"
             } else {
@@ -542,11 +477,10 @@ async fn run_shutdown_tui(
         })?;
 
         if finished {
-            sleep(Duration::from_millis(800)).await; // brief pause so user sees green state
+            sleep(Duration::from_millis(800)).await;
             break;
         }
 
-        // Non-blocking key check — q to force-exit early
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 if key.code == KeyCode::Char('q') {
@@ -556,17 +490,12 @@ async fn run_shutdown_tui(
         }
 
         tick = tick.wrapping_add(1);
-        sleep(Duration::from_millis(500)).await; // poll every 0.5 s
+        sleep(Duration::from_millis(500)).await;
     }
 
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
-
     Ok(())
 }
 
@@ -574,9 +503,7 @@ async fn run_shutdown_tui(
    SHARED SHUTDOWN HELPER
    ================================================================ */
 
-/// Spawns `docker-compose down` in the background then shows the shutdown TUI.
 async fn shutdown_with_tui(project_name: String, expected_services: Vec<String>) {
-    // Fire off compose down detached so the TUI starts immediately.
     tokio::spawn(async {
         let _ = tokio::process::Command::new("docker-compose")
             .arg("down")
@@ -638,7 +565,11 @@ pub async fn up(tera: Tera, skip: bool) {
         }
     };
 
-    // ── 2. Fetch schemas + generate Python files ──────────────────
+    // ── 2. Fetch schemas + generate Python files (only for dbs with an id) ──
+    //
+    // When a db has no `id`, we skip the API call and Python file generation
+    // entirely. The template will render a pgweb explorer service instead of
+    // the gingersociety runtime, so models.py / admin.py are not required.
     let open_api_config = get_configuration(Some(token));
     let db_compose_config = read_db_config("db-compose.toml").unwrap();
 
@@ -647,12 +578,23 @@ pub async fn up(tera: Tera, skip: bool) {
         .iter()
         .filter(|db| db.db_type == DbType::Rdbms)
     {
+        let schema_id = match db.id.clone() {
+            Some(id) => id,
+            None => {
+                println!(
+                    "Skipping schema fetch for '{}' (no id configured — pgweb will be used as the DB explorer).",
+                    db.name
+                );
+                continue;
+            }
+        };
+
         println!("Processing RDBMS database: {}", db.name);
 
         let schemas: Vec<Schema> = match metadata_get_dbschema_by_id(
             &open_api_config,
             MetadataGetDbschemaByIdParams {
-                schema_id: db.clone().id.unwrap(),
+                schema_id,
                 branch: Some(db_compose_config.branch.to_string()),
             },
         )
@@ -663,28 +605,31 @@ pub async fn up(tera: Tera, skip: bool) {
                 match serde_json::from_str(&response.data.unwrap().unwrap()) {
                     Ok(s) => s,
                     Err(err) => {
-                        eprintln!("Error parsing schema: {:?}", err);
+                        eprintln!("Error parsing schema for '{}': {:?}", db.name, err);
                         return;
                     }
                 }
             }
             Err(e) => {
                 eprintln!("{:?}", e);
-                eprintln!("Error getting the schema, please check your network");
+                eprintln!(
+                    "Error fetching schema for '{}', please check your network.",
+                    db.name
+                );
                 return;
             }
         };
 
-        let schema_json_path = format!("{}/schema.json", db.clone().name);
+        let schema_json_path = format!("{}/schema.json", db.name);
         match File::create(&schema_json_path) {
             Ok(mut f) => {
                 if let Err(err) =
                     f.write_all(serde_json::to_string_pretty(&schemas).unwrap().as_bytes())
                 {
-                    eprintln!("Error writing schema.json: {:?}", err);
+                    eprintln!("Error writing schema.json for '{}': {:?}", db.name, err);
                 }
             }
-            Err(err) => eprintln!("Error creating schema.json: {:?}", err),
+            Err(err) => eprintln!("Error creating schema.json for '{}': {:?}", db.name, err),
         }
 
         generate_python_files_for_db(&db.name, &schemas, &tera);
@@ -765,8 +710,8 @@ pub async fn up(tera: Tera, skip: bool) {
 
     {
         let boot_services = boot_services.clone();
-        let project_name = project_name.clone();
-        let expected = expected_services.clone();
+        let project_name  = project_name.clone();
+        let expected      = expected_services.clone();
 
         tokio::spawn(async move {
             loop {
@@ -797,7 +742,7 @@ pub async fn up(tera: Tera, skip: bool) {
         Err(e) => {
             eprintln!("Startup TUI error: {:?}", e);
             let _ = child.kill().await;
-            // Best-effort silent shutdown; no TUI since we already had a TUI error.
+            // Best-effort silent shutdown; terminal state may be broken.
             let _ = tokio::process::Command::new("docker-compose")
                 .arg("down")
                 .stdout(std::process::Stdio::null())

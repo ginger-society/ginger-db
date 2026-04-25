@@ -1,8 +1,8 @@
 version: '3'
-
 services:
     {% for db in databases %}
     {% if db.db_type == "rdbms" %}
+    {% if db.id %}
     {{ db.name }}-runtime:
         image: gingersociety/db-compose-runtime:latest
         command: ["/app/run.sh"]
@@ -20,6 +20,17 @@ services:
             - ./{{ db.name }}/migrations:/app/src/migrations
         depends_on:
             - {{ db.name }}-db
+    {% else %}
+    {{ db.name }}-pgweb:
+        image: sosedoff/pgweb
+        restart: always
+        ports:
+            - {{ db.studio_port }}:8081
+        environment:
+            - DATABASE_URL=postgres://postgres:postgres@{{ db.name }}-db:5432/{{ db.name }}-db?sslmode=disable
+        depends_on:
+            - {{ db.name }}-db
+    {% endif %}
     {{ db.name }}-db:
         image: postgres:14.1-alpine
         restart: always
@@ -40,7 +51,6 @@ services:
             - {{ db.port }}:27017
         volumes:
             - ./{{ db.name }}/mongodb:/data/db
-
     {{ db.name }}-mongo-gui:
         image: ugleiton/mongo-gui
         platform: linux/amd64
