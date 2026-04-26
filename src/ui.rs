@@ -112,9 +112,6 @@ fn dev_identity(db_type: &DbType) -> Option<DevIdentity> {
    SERVICE ROLE DETECTION
    ================================================================ */
 
-/// Returns true when the service is the UI/studio frontend for the db.
-/// Handles both the ginger-db-runtime variant (when db has an id) and
-/// the pgweb variant (when there is no id).
 fn is_ui_service(service_name: &str, db: &DatabaseConfig) -> bool {
     let name = service_name.to_lowercase();
     let base = db.name.to_lowercase();
@@ -211,7 +208,6 @@ fn build_service_panel(service: &Service, db: Option<&DatabaseConfig>) -> Vec<Li
     };
 
     let is_ui   = is_ui_service(&service.name, db);
-    let is_pgwb = is_pgweb_service(&service.name, db);
     let is_db   = is_db_service(&service.name, db);
     let conn_str = get_connection_string(service, db);
 
@@ -219,7 +215,6 @@ fn build_service_panel(service: &Service, db: Option<&DatabaseConfig>) -> Vec<Li
     if is_ui {
         if let Some(port) = &db.studio_port {
             let url = format!("http://localhost:{}", port);
-
             lines.push(Line::from(vec![
                 Span::styled("🌐 UI:  ", Style::default().fg(Color::Cyan)),
                 Span::styled(url, Style::default().fg(Color::Yellow)),
@@ -230,12 +225,10 @@ fn build_service_panel(service: &Service, db: Option<&DatabaseConfig>) -> Vec<Li
                         .add_modifier(Modifier::ITALIC),
                 ),
             ]));
-
-            
         }
     }
 
-    // ── Connection string (only for the raw DB service) ───────────
+    // ── Connection string ─────────────────────────────────────────
     if let Some(ref conn) = conn_str {
         lines.push(Line::from(vec![
             Span::styled("🔌 Connection String: ", Style::default().fg(Color::Cyan)),
@@ -347,7 +340,41 @@ fn status_color(status: &str) -> Color {
 }
 
 /* ================================================================
-   POPUP — start/stop/quit confirm
+   SORTING
+   ================================================================ */
+
+/// Assigns a within-group sort key so that for any db prefix the order is:
+///   1. -db / -mongodb / -redis  (the raw data store)
+///   2. -runtime / -pgweb / -mongo-gui / -messagequeue  (UI / admin)
+///   3. everything else (alphabetical)
+///
+/// Services that share the same prefix will therefore appear consecutively
+/// and in a logical data-first order.
+fn service_sort_key(name: &str) -> (String, u8, String) {
+    let lower = name.to_lowercase();
+
+    // Try to split on the last recognised suffix so we can group by prefix.
+    let suffixes_db  = ["-db", "-mongodb", "-redis"];
+    let suffixes_ui  = ["-runtime", "-pgweb", "-mongo-gui", "-messagequeue"];
+
+    for suffix in &suffixes_db {
+        if let Some(prefix) = lower.strip_suffix(suffix) {
+            return (prefix.to_string(), 0, lower.clone());
+        }
+    }
+    for suffix in &suffixes_ui {
+        if let Some(prefix) = lower.strip_suffix(suffix) {
+            return (prefix.to_string(), 1, lower.clone());
+        }
+    }
+
+    // Unknown suffix — sort after known ones, grouped by whatever prefix they share
+    // by using the full name as both the group key and the tiebreaker.
+    (lower.clone(), 2, lower)
+}
+
+/* ================================================================
+   POPUP — start / stop / quit confirm
    ================================================================ */
 
 fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
@@ -575,6 +602,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
     let mut logs_area = Rect::default();
 
     loop {
+        // Expire toast before drawing
         if let Some(ref t) = toast {
             if t.is_expired() {
                 toast = None;
@@ -631,10 +659,10 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
                     let (icon, icon_color) = if let Some(db) = db_info {
                         let color = match db.db_type {
-                            DbType::Rdbms       => Color::Blue,
-                            DbType::Cache       => Color::Yellow,
+                            DbType::Rdbms        => Color::Blue,
+                            DbType::Cache        => Color::Yellow,
                             DbType::MessageQueue => Color::Magenta,
-                            DbType::DocumentDb  => Color::Green,
+                            DbType::DocumentDb   => Color::Green,
                         };
                         (db_icon(&db.db_type), color)
                     } else {
@@ -724,6 +752,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
+            // Reserve 1 col on the right for the scrollbar
             let inner_log_area = Rect {
                 x: right_chunks[1].x,
                 y: right_chunks[1].y,
@@ -895,6 +924,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
 
                     /* ── Normal keys ── */
                     match key.code {
+                        // q → confirm-quit popup (default cursor on "No" so Enter is safe)
                         KeyCode::Char('q') => {
                             popup = Some(Popup {
                                 service_name: String::new(),
@@ -906,6 +936,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         KeyCode::Left  => focus = Focus::Services,
                         KeyCode::Right => focus = Focus::Logs,
 
+                        // Copy connection string
                         KeyCode::Char('c') => {
                             if let Some(ref conn) = current_conn_str {
                                 toast = Some(match copy_to_clipboard(conn) {
@@ -921,6 +952,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
 
+                        // Enter → start / stop popup
                         KeyCode::Enter => {
                             if focus == Focus::Services {
                                 let list = services.lock().unwrap().clone();
@@ -939,6 +971,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
 
+                        // Open UI in browser
                         KeyCode::Char('o') => {
                             let list = services.lock().unwrap().clone();
                             let idx  = *selected_idx.lock().unwrap();
@@ -953,6 +986,7 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
 
+                        // Shell into container
                         KeyCode::Char('s') => {
                             let list = services.lock().unwrap().clone();
                             let idx  = *selected_idx.lock().unwrap();
@@ -1007,29 +1041,22 @@ pub async fn render_ui() -> Result<(), Box<dyn std::error::Error>> {
                         }
 
                         KeyCode::PageDown => {
-                            if focus == Focus::Logs {
-                                auto_scroll = true;
-                            }
+                            if focus == Focus::Logs { auto_scroll = true; }
                         }
-
                         KeyCode::PageUp => {
                             if focus == Focus::Logs {
                                 auto_scroll = false;
                                 scroll_offset = 0;
                             }
                         }
-
                         KeyCode::Char('g') => {
                             if focus == Focus::Logs {
                                 auto_scroll = false;
                                 scroll_offset = 0;
                             }
                         }
-
                         KeyCode::Char('G') => {
-                            if focus == Focus::Logs {
-                                auto_scroll = true;
-                            }
+                            if focus == Focus::Logs { auto_scroll = true; }
                         }
 
                         _ => {}
@@ -1062,7 +1089,6 @@ async fn get_compose_project_name() -> Result<String, Box<dyn std::error::Error>
         .await?;
 
     let config = String::from_utf8(output.stdout)?;
-
     for line in config.lines() {
         if line.starts_with("name:") {
             return Ok(line.split(':').nth(1).unwrap_or("").trim().to_string());
@@ -1092,19 +1118,29 @@ async fn get_docker_services(
         .await?;
 
     let result = String::from_utf8(output.stdout)?;
-    Ok(result
+    let mut services: Vec<Service> = result
         .lines()
         .filter(|line| !line.is_empty())
         .map(|line| {
             let parts: Vec<&str> = line.split('|').collect();
             Service {
                 container_id: parts.get(0).unwrap_or(&"").to_string(),
-                name: parts.get(1).unwrap_or(&"unknown").to_string(),
-                status: parse_status(parts.get(2).unwrap_or(&"unknown")),
-                image: parts.get(3).unwrap_or(&"unknown").to_string(),
+                name:         parts.get(1).unwrap_or(&"unknown").to_string(),
+                status:       parse_status(parts.get(2).unwrap_or(&"unknown")),
+                image:        parts.get(3).unwrap_or(&"unknown").to_string(),
             }
         })
-        .collect())
+        .collect();
+
+    // Sort so that related services (same db prefix) appear together and in a
+    // logical order: raw data store first, then UI/admin, then anything else.
+    services.sort_by(|a, b| {
+        let ka = service_sort_key(&a.name);
+        let kb = service_sort_key(&b.name);
+        ka.cmp(&kb)
+    });
+
+    Ok(services)
 }
 
 fn parse_status(status_str: &str) -> String {

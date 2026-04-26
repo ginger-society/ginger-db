@@ -1,6 +1,7 @@
 version: '3'
 services:
     {% for db in databases %}
+    {% if db.enable %}
     {% if db.db_type == "rdbms" %}
     {% if db.id %}
     {{ db.name }}-runtime:
@@ -80,5 +81,6 @@ services:
         environment:
             RABBITMQ_DEFAULT_USER: user
             RABBITMQ_DEFAULT_PASS: password
+    {% endif %}
     {% endif %}
     {% endfor %}
