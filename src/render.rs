@@ -9,6 +9,7 @@ use inquire::formatter::MultiOptionFormatter;
 use inquire::list_option::ListOption;
 use inquire::validator::Validation;
 use inquire::MultiSelect;
+use schema_gen_service::apis::configuration::Configuration;
 use schema_gen_service::apis::get_all_models_api;
 use schema_gen_service::apis::render_models_api::{self, RenderModelsListParams};
 use schema_gen_service::models::{ModelsReponse, RenderedModelsReponse};
