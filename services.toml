@@ -3,11 +3,12 @@ organization_id = "ginger-society"
 dir = "."
 
 [services."@ginger-society/schema-gen-service"]
-prod = "https://db-compose-test-env.gingersociety.org/"
-stage = "https://db-compose-runtime-test-env-675766508318.asia-south1.run.app"
+prod = "https://db-compose-test-env.gingersociety.org"
+stage = "https://db-compose-test-env.gingersociety.org"
 
 [services."@ginger-society/MetadataService"]
 prod = "https://api.gingersociety.org/metadata"
+stage = "https://api.gingersociety.org/metadata"
 
 [services."@ginger-society/IAMService"]
 stage = "https://api.gingersociety.org/iam"
